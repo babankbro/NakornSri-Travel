@@ -12,8 +12,10 @@ class PlaceType(str, Enum):
 
 
 class AlgorithmType(str, Enum):
+    SM = "sm"
     SA = "sa"
     GA = "ga"
+    SM_ALNS = "sm_alns"
     SA_ALNS = "sa_alns"
     GA_ALNS = "ga_alns"
     LINGO = "lingo"

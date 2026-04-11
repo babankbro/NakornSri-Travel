@@ -168,7 +168,7 @@ Run an optimization algorithm and save the result.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `trip_days` | int (1-2) | `2` | Number of trip days |
-| `algorithm` | string | `"ga"` | Algorithm: `ga`, `sa`, `sa_alns`, `ga_alns`, `lingo` |
+| `algorithm` | string | `"ga"` | Algorithm: `sm`, `ga`, `sa`, `sm_alns`, `sa_alns`, `ga_alns`, `lingo` |
 | `lifestyle_type` | string | `"all"` | Lifestyle filter: `all`, `culture`, `cafe`, `food` |
 | `weight_distance` | float (0-1) | `0.4` | Weight for distance in fitness function |
 | `weight_time` | float (0-1) | `0.3` | Weight for time in fitness function |

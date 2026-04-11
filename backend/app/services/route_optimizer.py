@@ -10,8 +10,10 @@ from backend.app.services.data_loader import DataLoader
 from backend.app.optimizers.base import Route, RouteEvaluator
 from backend.app.optimizers.ga import GAOptimizer
 from backend.app.optimizers.sa import SAOptimizer
+from backend.app.optimizers.sm import SMOptimizer
 from backend.app.optimizers.sa_alns import SAAlnsOptimizer
 from backend.app.optimizers.ga_alns import GAAlnsOptimizer
+from backend.app.optimizers.sm_alns import SMAlnsOptimizer
 
 
 DAY_COLORS = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B"]
@@ -30,10 +32,14 @@ class RouteOptimizerService:
     def optimize(self, request: OptimizeRequest) -> Dict[str, Any]:
         algo = request.algorithm
 
-        if algo == AlgorithmType.GA:
+        if algo == AlgorithmType.SM:
+            optimizer = SMOptimizer(self.data, request)
+        elif algo == AlgorithmType.GA:
             optimizer = GAOptimizer(self.data, request)
         elif algo == AlgorithmType.SA:
             optimizer = SAOptimizer(self.data, request)
+        elif algo == AlgorithmType.SM_ALNS:
+            optimizer = SMAlnsOptimizer(self.data, request)
         elif algo == AlgorithmType.SA_ALNS:
             optimizer = SAAlnsOptimizer(self.data, request)
         elif algo == AlgorithmType.GA_ALNS:

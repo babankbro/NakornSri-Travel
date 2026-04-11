@@ -33,5 +33,7 @@ def test_optimize(algorithm="ga"):
         print(f"    OTOP in day: {otop_ids}  (should be exactly 1)")
         print(f"    CO2 sum from places: {co2_sum:.3f}  reported: {day['co2_kg']:.3f}")
 
+test_optimize("sm")
 test_optimize("ga")
 test_optimize("sa")
+test_optimize("sm_alns")

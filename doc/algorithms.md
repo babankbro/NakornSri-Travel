@@ -252,6 +252,122 @@ The ALNS local search randomly selects a destroy operator (random, worst, or Sha
 
 ---
 
+### SM — Saving Method (Clarke-Wright)
+
+**Source**: `backend/app/optimizers/sm.py`
+
+A constructive heuristic based on the **Clarke-Wright Savings Algorithm**, adapted for the multi-day travel route problem. Instead of evolving or searching, it builds a good route directly by greedily merging place visits that yield the greatest "savings" in travel distance.
+
+#### Concept
+
+The core idea: serving each place with a separate round trip from the depot/hotel is wasteful. By combining places into a single route, we "save" distance. The savings value for combining places i and j is:
+
+```
+savings(i, j) = d(hub, i) + d(hub, j) - d(i, j)
+```
+
+Where `hub` is the day's starting point (Depot for Day 1, Hotel for Day 2). Higher savings means combining i and j reduces total distance more.
+
+#### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `seed` | None | Random seed for reproducibility |
+| `verbose` | True | Print progress to console |
+
+#### Flow
+
+```
+1. Select a hotel (best by average distance to depot + candidates)
+2. For each day:
+   a. Compute savings for all candidate place pairs relative to the day's hub
+   b. Sort savings in descending order
+   c. Build route by greedily merging pairs with highest savings:
+      - Ensure OTOP constraint (exactly 1 per day)
+      - Ensure max_places_per_day limit
+      - Ensure no duplicate places across days
+      - Ensure time window feasibility (08:00–17:00)
+   d. Optimize visit order using nearest-neighbor insertion
+3. Return the constructed route
+```
+
+#### Algorithm Details
+
+**Phase 1 — Hotel Selection**:
+- For each hotel, compute average distance to depot and to all candidate places
+- Select the hotel that minimizes this combined metric
+
+**Phase 2 — Savings Computation (per day)**:
+- Hub = Depot (Day 1) or Hotel (Day 2)
+- For each pair of candidate places (i, j):
+  `S(i,j) = distance(hub, i) + distance(hub, j) - distance(i, j)`
+- Sort all pairs by savings value descending
+
+**Phase 3 — Greedy Route Construction (per day)**:
+- Start with 1 OTOP place (constraint)
+- Iterate through savings pairs and add places if:
+  - Place not already in any day's route
+  - Day has room (< max_places_per_day)
+  - Adding doesn't violate time window
+- Fill remaining slots with best-rated unvisited places
+
+**Phase 4 — Route Ordering**:
+- Use nearest-neighbor heuristic to order places within each day
+- Starting from the hub, always visit the closest unvisited place next
+
+#### Characteristics
+
+- **Deterministic** (with same data, produces the same result)
+- **Very fast** — single-pass construction, no iterations
+- **Good initial solution** — often used as a seed for metaheuristics
+- No randomness in the core logic (only in tie-breaking)
+
+---
+
+### SM+ALNS — Saving Method with ALNS Improvement
+
+**Source**: `backend/app/optimizers/sm_alns.py`
+
+Hybrid that uses SM to construct a high-quality initial solution, then applies ALNS destroy/repair iterations to improve it further.
+
+#### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `alns_iterations` | 100 | Number of ALNS improvement iterations |
+| `n_remove` | 2 | Places to remove per destroy step |
+| `seed` | None | Random seed for reproducibility |
+| `verbose` | True | Print progress to console |
+
+#### Flow
+
+```
+1. Run SM to construct initial route (deterministic, fast)
+2. Apply ALNS improvement loop:
+   For each iteration (100):
+       Select destroy operator (random, worst, or Shaw removal)
+       Select repair operator (greedy, random, or regret insertion)
+       Destroy current route → partial + removed places
+       Repair partial route → candidate
+       If candidate is better: accept
+       Track best solution found
+3. Return the best route
+```
+
+#### Why SM + ALNS?
+
+- **SM alone** builds a good route quickly but can get stuck in a greedy construction pattern
+- **ALNS alone** (via SA+ALNS) starts from a random solution and needs many iterations to converge
+- **SM+ALNS** starts from SM's already-good solution, so ALNS iterations focus on fine-tuning rather than searching from scratch — typically converges faster with better results
+
+#### Characteristics
+
+- **Fast** — SM construction is near-instant, ALNS iterations are lightweight
+- **High quality** — benefits from SM's savings-based construction + ALNS's local search
+- **Partially deterministic** — SM phase is deterministic, ALNS phase uses random operator selection
+
+---
+
 ### SA+ALNS — Simulated Annealing with Adaptive ALNS
 
 **Source**: `backend/app/optimizers/sa_alns.py`
@@ -307,9 +423,16 @@ While temperature > min_temp:
 
 | Algorithm | Speed | Solution Quality | Best For |
 |-----------|-------|-----------------|----------|
+| **SM** | Very Fast | Good | Quick baseline, deterministic results |
 | **GA** | Medium | Good | General use, large solution spaces |
 | **SA** | Fast | Good | Quick results, escaping local optima |
+| **SM+ALNS** | Fast | Very Good | Fast high-quality results, best starting point |
 | **GA+ALNS** | Slow | Very Good | Best quality when time allows |
 | **SA+ALNS** | Medium | Very Good | Balance of quality and speed, adaptive |
 
-Use the `/api/v1/routes/compare` endpoint to run all algorithms on the same parameters and compare results side-by-side.
+### Choosing an Algorithm
+
+- **Need instant results?** → Use **SM** (single-pass, deterministic)
+- **Need fast + good quality?** → Use **SM+ALNS** (SM seed + ALNS refinement)
+- **Need best possible quality?** → Use **GA+ALNS** (population search + local search)
+- **Comparing approaches?** → Use the `/api/v1/routes/compare` endpoint to run all algorithms on the same parameters and compare results side-by-side

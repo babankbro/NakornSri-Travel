@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Route Planner - ระบบวางแผนเส้นทางท่องเที่ยว</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 500px; width: 100%; border-radius: 12px; }
+        #gmapsFrame { width: 100%; height: 480px; border: none; border-radius: 12px; }
+        .day-tab-btn { padding: 6px 16px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; transition: all 0.2s; border: 2px solid transparent; }
+        .day-tab-btn.active { color: white; }
+        .tab-btn.active { background: #3B82F6; color: white; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3B82F6; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .day-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-route text-blue-500 text-2xl"></i>
+                <h1 class="text-xl font-bold text-gray-800">Travel Route Planner</h1>
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">File-Based</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-500">
+                <span id="dataStatus" class="flex items-center gap-1">
+                    <i class="fas fa-circle text-gray-300 text-xs"></i> No data
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6">
+            <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition" onclick="switchTab('optimize')">
+                <i class="fas fa-cogs mr-1"></i> คำนวณเส้นทาง
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('results')">
+                <i class="fas fa-list mr-1"></i> ผลลัพธ์ย้อนหลัง
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('compare')">
+                <i class="fas fa-chart-bar mr-1"></i> เปรียบเทียบวิธี
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('import')">
+                <i class="fas fa-upload mr-1"></i> นำเข้าข้อมูล
+            </button>
+        </div>
+
+        <!-- Optimize Tab -->
+        <div id="tab-optimize" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Config Panel -->
+                <div class="card p-6 fade-in">
+                    <h2 class="font-bold text-gray-800 mb-4"><i class="fas fa-sliders-h mr-2 text-blue-500"></i>เงื่อนไขการเดินทาง</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนวัน</label>
+                            <select id="tripDays" class="w-full border rounded-lg px-3 py-2 text-sm">
+                                <option value="1">1 วัน</option>
+                                <option value="2" selected>2 วัน 1 คืน</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">อัลกอริทึม</label>
+                            <select id="algorithm" class="w-full border rounded-lg px-3 py-2 text-sm">
+                                <option value="ga">GA (Genetic Algorithm)</option>
+                                <option value="sa">SA (Simulated Annealing)</option>
+                                <option value="sa_alns">SA + ALNS</option>
+                                <option value="ga_alns">GA + ALNS</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ไลฟ์สไตล์</label>
+                            <select id="lifestyle" class="w-full border rounded-lg px-3 py-2 text-sm">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="culture">สายวัฒนธรรม</option>
+                                <option value="cafe">สายคาเฟ่ติดแกรม</option>
+                                <option value="food">สายของอร่อย</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">สถานที่ต่อวัน (สูงสุด)</label>
+                            <input type="number" id="maxPlaces" value="6" min="1" max="10" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">น้ำหนัก Objective</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-500">ระยะทาง</label>
+                                    <input type="number" id="wDist" value="0.4" min="0" max="1" step="0.1" class="w-full border rounded-lg px-2 py-1 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">เวลา</label>
+                                    <input type="number" id="wTime" value="0.3" min="0" max="1" step="0.1" class="w-full border rounded-lg px-2 py-1 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500">CO₂</label>
+                                    <input type="number" id="wCo2" value="0.3" min="0" max="1" step="0.1" class="w-full border rounded-lg px-2 py-1 text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btnOptimize" onclick="runOptimize()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+                            <i class="fas fa-play"></i> คำนวณเส้นทาง
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map + Results -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="card p-4 fade-in">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-bold text-gray-800"><i class="fas fa-map-marked-alt mr-2 text-green-500"></i>แผนที่เส้นทาง</h2>
+                            <div id="legendBar" class="flex gap-3 text-xs"></div>
+                        </div>
+                        <div id="map"></div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-3 hidden">
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">ระยะทางรวม</div>
+                            <div id="sumDist" class="text-xl font-bold text-blue-600">-</div>
+                            <div class="text-xs text-gray-400">km</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">เวลารวม</div>
+                            <div id="sumTime" class="text-xl font-bold text-purple-600">-</div>
+                            <div class="text-xs text-gray-400">min</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">CO₂ รวม</div>
+                            <div id="sumCo2" class="text-xl font-bold text-red-500">-</div>
+                            <div class="text-xs text-gray-400">kg</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">ที่พัก</div>
+                            <div id="sumHotel" class="text-sm font-bold text-amber-600 truncate">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Day Details -->
+                    <div id="dayDetails" class="space-y-3"></div>
+
+                    <!-- Google Maps Route Panel -->
+                    <div id="gmapsPanel" class="card p-4 fade-in hidden">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-bold text-gray-800"><i class="fab fa-google mr-2 text-green-600"></i>เส้นทางจริงบน Google Maps</h2>
+                            <div id="gmapsDayTabs" class="flex gap-2"></div>
+                        </div>
+                        <div id="gmapsWarning" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-sm text-yellow-800">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            <span id="gmapsWarningText"></span>
+                        </div>
+                        <div id="gmapsContainer" class="rounded-xl overflow-hidden border border-gray-200">
+                            <iframe id="gmapsFrame" src="" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between">
+                            <p class="text-xs text-gray-400"><i class="fas fa-info-circle mr-1"></i>เส้นทางขับรถ จุดแวะตามลำดับที่คำนวณ</p>
+                            <a id="gmapsOpenLink" href="#" target="_blank" rel="noopener noreferrer"
+                               class="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1">
+                                <i class="fas fa-external-link-alt"></i> เปิดใน Google Maps
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Tab -->
+        <div id="tab-results" class="tab-content hidden">
+            <div class="card p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-gray-800"><i class="fas fa-history mr-2 text-purple-500"></i>ผลลัพธ์ย้อนหลัง</h2>
+                    <button onclick="loadResultsList()" class="text-sm text-blue-500 hover:text-blue-700"><i class="fas fa-sync-alt mr-1"></i>รีเฟรช</button>
+                </div>
+                <div id="resultsList" class="space-y-2">
+                    <p class="text-gray-400 text-sm">กด "รีเฟรช" เพื่อโหลดรายการ</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compare Tab -->
+        <div id="tab-compare" class="tab-content hidden">
+            <div class="card p-6 fade-in">
+                <h2 class="font-bold text-gray-800 mb-4"><i class="fas fa-chart-bar mr-2 text-green-500"></i>เปรียบเทียบอัลกอริทึม</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เลือกอัลกอริทึม</label>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="flex items-center gap-1 text-sm"><input type="checkbox" value="ga" checked class="cmp-algo"> GA</label>
+                            <label class="flex items-center gap-1 text-sm"><input type="checkbox" value="sa" checked class="cmp-algo"> SA</label>
+                            <label class="flex items-center gap-1 text-sm"><input type="checkbox" value="sa_alns" class="cmp-algo"> SA+ALNS</label>
+                            <label class="flex items-center gap-1 text-sm"><input type="checkbox" value="ga_alns" class="cmp-algo"> GA+ALNS</label>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="runCompare()" class="bg-green-500 hover:bg-green-600 text-white font-medium px-6 py-2 rounded-lg transition">
+                    <i class="fas fa-play mr-1"></i> เปรียบเทียบ
+                </button>
+                <div id="compareResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Import Tab -->
+        <div id="tab-import" class="tab-content hidden">
+            <!-- Google Distance Matrix Card -->
+            <div class="card p-6 fade-in mb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="font-bold text-gray-800">
+                        <i class="fab fa-google mr-2 text-blue-500"></i>Google Distance Matrix API
+                    </h2>
+                    <div id="googleStatusBadge" class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-500 flex items-center gap-1">
+                        <i class="fas fa-circle text-xs"></i> ตรวจสอบ...
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4 text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    ใช้ Google API เพื่อดึงระยะทางและเวลาจริง (แทน Haversine) — คำนวณครั้งเดียว บันทึกไฟล์ CSV ใช้ซ้ำได้เลย
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Google API Key
+                            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="ml-1 text-xs text-blue-500 hover:underline">
+                                <i class="fas fa-external-link-alt"></i> รับ Key
+                            </a>
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="password" id="googleApiKey" placeholder="AIzaSy..." 
+                                class="flex-1 border rounded-lg px-3 py-2 text-sm font-mono" autocomplete="off">
+                            <button onclick="toggleApiKeyVisibility()" class="text-gray-400 hover:text-gray-600 px-2" title="แสดง/ซ่อน">
+                                <i id="apiKeyEyeIcon" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="googleCacheInfo" class="hidden bg-green-50 border border-green-100 rounded-lg p-3 text-sm text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        <span id="googleCacheText"></span>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnLoadGoogle" onclick="loadGoogleMatrix()" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                            <i class="fas fa-satellite-dish"></i> ดึงข้อมูลจาก Google API
+                        </button>
+                        <button id="btnLoadCached" onclick="loadCachedMatrix()" 
+                            class="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 hidden">
+                            <i class="fas fa-bolt"></i> โหลด Cache ที่บันทึกไว้
+                        </button>
+                        <button id="btnClearGoogle" onclick="clearGoogleCache()" 
+                            class="bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 hidden">
+                            <i class="fas fa-trash-alt"></i> ล้าง Cache
+                        </button>
+                    </div>
+
+                    <div id="googleStatus" class="text-sm hidden"></div>
+
+                    <!-- Progress bar -->
+                    <div id="googleProgress" class="hidden">
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                            <span>กำลังดึงข้อมูล...</span>
+                            <span id="googleProgressText">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="googleProgressBar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Import Card -->
+            <div class="card p-6 fade-in">
+                <h2 class="font-bold text-gray-800 mb-4"><i class="fas fa-file-upload mr-2 text-amber-500"></i>นำเข้าข้อมูล</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold text-sm mb-2">ไฟล์สถานที่ (places CSV)</h3>
+                        <input type="file" id="placesFile" accept=".csv" class="block w-full text-sm border rounded-lg p-2">
+                        <button onclick="uploadPlaces()" class="mt-2 bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-600">อัปโหลด</button>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-sm mb-2">ไฟล์ผลลัพธ์ (JSON)</h3>
+                        <input type="file" id="resultFile" accept=".json" class="block w-full text-sm border rounded-lg p-2">
+                        <button onclick="importResult()" class="mt-2 bg-purple-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-600">นำเข้า</button>
+                    </div>
+                </div>
+                <div id="importStatus" class="mt-4 text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

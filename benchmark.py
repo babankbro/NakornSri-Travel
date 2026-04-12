@@ -1,10 +1,13 @@
 """
 Benchmark Test Suite for Travel Route Optimization Algorithms
 
-Runs SM, GA, SM+ALNS, GA+ALNS across 9 test cases:
+Runs SM, GA, SA, SM+ALNS, GA+ALNS, SA+ALNS across 9 test cases:
 - Small (1-day): 3 subsets with ~8-10 places
 - Large (2-day): 3 subsets with ~25-35 places
 - Real  (1-3 day): 3 subsets with all 44 places
+
+Each algorithm × test case is run N_ROUNDS times.
+Output reports mean ± std for time, fitness, and distance.
 
 Output: Console table + benchmark_results.csv
 """
@@ -15,16 +18,36 @@ import sys
 import os
 import numpy as np
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Resolve project root (directory that contains the 'backend' folder)
+def _find_project_root() -> str:
+    d = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(10):
+        if os.path.isdir(os.path.join(d, "backend")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return os.path.dirname(os.path.abspath(__file__))
+
+PROJECT_ROOT = _find_project_root()
+sys.path.insert(0, PROJECT_ROOT)
 
 from backend.app.services.data_loader import DataLoader
 from backend.app.schemas.models import OptimizeRequest, AlgorithmType, LifestyleType
 from backend.app.optimizers.sm import SMOptimizer
 from backend.app.optimizers.ga import GAOptimizer
+from backend.app.optimizers.sa import SAOptimizer
 from backend.app.optimizers.sm_alns import SMAlnsOptimizer
 from backend.app.optimizers.ga_alns import GAAlnsOptimizer
+from backend.app.optimizers.sa_alns import SAAlnsOptimizer
 
+
+# ============================================================
+# Configuration
+# ============================================================
+
+N_ROUNDS = 10  # Number of repeated runs per algorithm × test case
 
 # ============================================================
 # Test case definitions
@@ -61,8 +84,10 @@ TEST_CASES = [
 ALGORITHMS = {
     "SM":      {"class": SMOptimizer,     "kwargs": {}},
     "GA":      {"class": GAOptimizer,     "kwargs": {"population_size": 50, "generations": 100, "verbose": False}},
+    "SA":      {"class": SAOptimizer,     "kwargs": {"verbose": False}},
     "SM+ALNS": {"class": SMAlnsOptimizer, "kwargs": {"alns_iterations": 50, "verbose": False}},
     "GA+ALNS": {"class": GAAlnsOptimizer, "kwargs": {"population_size": 30, "generations": 50, "alns_iterations": 10, "verbose": False}},
+    "SA+ALNS": {"class": SAAlnsOptimizer, "kwargs": {"verbose": False}},
 }
 
 ALGO_NAMES = list(ALGORITHMS.keys())
@@ -88,7 +113,7 @@ def create_subset_loader(place_ids) -> DataLoader:
 
 
 def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> dict:
-    """Run a single algorithm and return results."""
+    """Run a single algorithm once and return results."""
     cfg = ALGORITHMS[algo_name]
     OptimizerClass = cfg["class"]
     kwargs = cfg["kwargs"].copy()
@@ -100,6 +125,11 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
         fitness = optimizer.evaluator.fitness(route)
         violations = optimizer.evaluator.check_constraints(route)
 
+        place_map = {p.id: p for p in loader.places}
+        all_place_ids = [pid for day in route.day_places for pid in day]
+        ratings = [place_map[pid].rate for pid in all_place_ids if pid in place_map]
+        avg_rating = float(np.mean(ratings)) if ratings else 0.0
+
         return {
             "success": True,
             "time_sec": optimizer.computation_time,
@@ -107,6 +137,7 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
             "distance_km": evaluation["total_distance_km"],
             "time_min": evaluation["total_time_min"],
             "co2_kg": evaluation["total_co2_kg"],
+            "avg_rating": avg_rating,
             "feasible": evaluation["feasible"],
             "violations": violations,
         }
@@ -118,26 +149,114 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
             "distance_km": 0,
             "time_min": 0,
             "co2_kg": 0,
+            "avg_rating": 0.0,
             "feasible": False,
             "violations": [str(e)],
         }
 
 
+def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n_rounds: int) -> dict:
+    """Run algorithm n_rounds times and return aggregated stats (mean ± std) + raw per-round data."""
+    times, fitnesses, distances, times_min, co2s, ratings = [], [], [], [], [], []
+    success_count = 0
+    feasible_count = 0
+    all_violations = []
+    raw_rounds = []  # store each round's full result
+
+    print(f"")
+    for i in range(n_rounds):
+        print(f"    Round {i+1:>2}/{n_rounds} ", end="", flush=True)
+        r = run_single(loader, request, algo_name)
+        raw_rounds.append({"round": i + 1, **r})
+        if r["success"]:
+            success_count += 1
+            times.append(r["time_sec"])
+            fitnesses.append(r["fitness"])
+            distances.append(r["distance_km"])
+            times_min.append(r["time_min"])
+            co2s.append(r["co2_kg"])
+            ratings.append(r["avg_rating"])
+            status = "✓" if r["feasible"] and not r["violations"] else "⚠"
+            if r["feasible"]:
+                feasible_count += 1
+            if r["violations"]:
+                all_violations.extend(r["violations"])
+            print(
+                f"{status}  "
+                f"time={r['time_sec']:7.3f}s  "
+                f"fit={r['fitness']:8.4f}  "
+                f"dist={r['distance_km']:7.2f}km  "
+                f"time={r['time_min']:6.1f}min  "
+                f"co2={r['co2_kg']:6.3f}kg  "
+                f"rating={r['avg_rating']:5.2f}"
+            )
+            if r["violations"]:
+                for v in r["violations"]:
+                    print(f"           ⚠ {v}")
+        else:
+            print(f"✗  FAILED: {r['violations']}")
+
+    if not times:
+        return {
+            "success": False,
+            "n_rounds": n_rounds,
+            "success_count": 0,
+            "time_mean": 0, "time_std": 0,
+            "fitness_mean": float("inf"), "fitness_std": 0,
+            "distance_mean": 0, "distance_std": 0,
+            "time_min_mean": 0, "time_min_std": 0,
+            "co2_mean": 0, "co2_std": 0,
+            "rating_mean": 0, "rating_std": 0,
+            "feasible_count": 0,
+            "violations": all_violations,
+            "raw_rounds": raw_rounds,
+        }
+
+    return {
+        "success": True,
+        "n_rounds": n_rounds,
+        "success_count": success_count,
+        "time_mean":     float(np.mean(times)),
+        "time_std":      float(np.std(times)),
+        "fitness_mean":  float(np.mean(fitnesses)),
+        "fitness_std":   float(np.std(fitnesses)),
+        "distance_mean": float(np.mean(distances)),
+        "distance_std":  float(np.std(distances)),
+        "time_min_mean": float(np.mean(times_min)),
+        "time_min_std":  float(np.std(times_min)),
+        "co2_mean":      float(np.mean(co2s)),
+        "co2_std":       float(np.std(co2s)),
+        "rating_mean":   float(np.mean(ratings)),
+        "rating_std":    float(np.std(ratings)),
+        "feasible_count": feasible_count,
+        "violations": list(set(all_violations)),
+        "raw_rounds": raw_rounds,
+    }
+
+
+def fmt_mean_std(mean: float, std: float, decimals: int = 3) -> str:
+    """Format a mean±std string."""
+    fmt = f".{decimals}f"
+    return f"{mean:{fmt}}±{std:{fmt}}"
+
+
 def main():
-    print("=" * 80)
+    print("=" * 100)
     print("  BENCHMARK: Travel Route Optimization Algorithms")
-    print("=" * 80)
-    print(f"  Test cases: {len(TEST_CASES)}")
-    print(f"  Algorithms: {', '.join(ALGO_NAMES)}")
-    print("=" * 80)
+    print("=" * 100)
+    print(f"  Test cases : {len(TEST_CASES)}")
+    print(f"  Algorithms : {', '.join(ALGO_NAMES)}")
+    print(f"  Rounds     : {N_ROUNDS} (reporting mean ± std)")
+    print("=" * 100)
     print()
 
-    # Results storage: results[case_name][algo_name] = result_dict
+    # Results storage: results[case_name][algo_name] = aggregated stats dict
     results = {}
     csv_rows = []
+    raw_rows = []
 
     for case_idx, (case_name, place_ids, trip_days, lifestyle, desc) in enumerate(TEST_CASES):
-        print(f"\n{'─'*70}")
+        print(f"\n{'─'*90}")
         print(f"  Case {case_idx+1}/{len(TEST_CASES)}: {case_name} — {desc}")
         print(f"  trip_days={trip_days}, lifestyle={lifestyle}")
 
@@ -147,7 +266,7 @@ def main():
         n_hotels = len(loader.get_hotels())
         n_otop = len(loader.get_otop_places())
         print(f"  Places: {n_places} total ({n_tourist} tourist, {n_hotels} hotels, {n_otop} OTOP)")
-        print(f"{'─'*70}")
+        print(f"{'─'*90}")
 
         request = OptimizeRequest(
             trip_days=trip_days,
@@ -162,23 +281,27 @@ def main():
         results[case_name] = {}
 
         for algo_name in ALGO_NAMES:
-            print(f"\n  Running {algo_name}...", end=" ", flush=True)
-            result = run_single(loader, request, algo_name)
-            results[case_name][algo_name] = result
+            print(f"\n  [{algo_name}] running {N_ROUNDS} rounds...")
+            agg = run_repeated(loader, request, algo_name, N_ROUNDS)
+            results[case_name][algo_name] = agg
 
-            if result["success"]:
-                status = "✓" if result["feasible"] and not result["violations"] else "⚠"
+            if agg["success"]:
+                feasible_ratio = f"{agg['feasible_count']}/{agg['success_count']}"
                 print(
-                    f"{status} {result['time_sec']:.3f}s  "
-                    f"fit={result['fitness']:.4f}  "
-                    f"dist={result['distance_km']:.1f}km  "
-                    f"co2={result['co2_kg']:.3f}kg"
+                    f"    {'─'*70}\n"
+                    f"    SUMMARY [{algo_name}]  feasible={feasible_ratio}\n"
+                    f"      time    = {fmt_mean_std(agg['time_mean'],     agg['time_std'])}s\n"
+                    f"      fitness = {fmt_mean_std(agg['fitness_mean'],  agg['fitness_std'], 4)}\n"
+                    f"      dist    = {fmt_mean_std(agg['distance_mean'], agg['distance_std'], 2)}km\n"
+                    f"      travel  = {fmt_mean_std(agg['time_min_mean'], agg['time_min_std'], 1)}min\n"
+                    f"      co2     = {fmt_mean_std(agg['co2_mean'],      agg['co2_std'], 3)}kg\n"
+                    f"      rating  = {fmt_mean_std(agg['rating_mean'],   agg['rating_std'], 2)}"
                 )
-                if result["violations"]:
-                    for v in result["violations"]:
+                if agg["violations"]:
+                    for v in agg["violations"]:
                         print(f"    ⚠ {v}")
             else:
-                print(f"✗ FAILED: {result['violations']}")
+                print(f"    ✗ ALL FAILED")
 
             csv_rows.append({
                 "case": case_name,
@@ -187,93 +310,136 @@ def main():
                 "lifestyle": lifestyle,
                 "n_places": n_places,
                 "algorithm": algo_name,
-                "time_sec": round(result["time_sec"], 4),
-                "fitness": round(result["fitness"], 4) if result["fitness"] < float("inf") else "INF",
-                "distance_km": round(result["distance_km"], 2),
-                "time_min": round(result["time_min"], 1),
-                "co2_kg": round(result["co2_kg"], 3),
-                "feasible": result["feasible"],
-                "violations": "; ".join(result["violations"]) if result["violations"] else "",
+                "n_rounds": N_ROUNDS,
+                "success_count": agg["success_count"],
+                "feasible_count": agg["feasible_count"],
+                "time_mean":     round(agg["time_mean"], 4),
+                "time_std":      round(agg["time_std"], 4),
+                "fitness_mean":  round(agg["fitness_mean"], 4) if agg["fitness_mean"] < float("inf") else "INF",
+                "fitness_std":   round(agg["fitness_std"], 4),
+                "distance_mean": round(agg["distance_mean"], 2),
+                "distance_std":  round(agg["distance_std"], 2),
+                "time_min_mean": round(agg["time_min_mean"], 1),
+                "time_min_std":  round(agg["time_min_std"], 1),
+                "co2_mean":      round(agg["co2_mean"], 3),
+                "co2_std":       round(agg["co2_std"], 3),
+                "rating_mean":   round(agg["rating_mean"], 3),
+                "rating_std":    round(agg["rating_std"], 3),
+                "violations": "; ".join(agg["violations"]) if agg["violations"] else "",
             })
 
-    # ============================================================
-    # Print summary table
-    # ============================================================
-    print("\n\n")
-    print("=" * 80)
-    print("  COMPUTATION TIME TABLE (seconds)")
-    print("=" * 80)
+            for rr in agg["raw_rounds"]:
+                raw_rows.append({
+                    "case": case_name,
+                    "description": desc,
+                    "trip_days": trip_days,
+                    "lifestyle": lifestyle,
+                    "n_places": n_places,
+                    "algorithm": algo_name,
+                    "round": rr["round"],
+                    "success": rr["success"],
+                    "time_sec":    round(rr["time_sec"], 4),
+                    "fitness":     round(rr["fitness"], 4) if rr["fitness"] < float("inf") else "INF",
+                    "distance_km": round(rr["distance_km"], 2),
+                    "time_min":    round(rr["time_min"], 1),
+                    "co2_kg":      round(rr["co2_kg"], 3),
+                    "avg_rating":  round(rr["avg_rating"], 3),
+                    "feasible":    rr["feasible"],
+                    "violations":  "; ".join(rr["violations"]) if rr["violations"] else "",
+                })
 
-    # Header
-    col_w = 12
-    case_w = 10
-    header = f"{'Case':<{case_w}}"
-    for algo in ALGO_NAMES:
-        header += f" | {algo:>{col_w}}"
-    print(header)
-    print("-" * len(header))
+    # ============================================================
+    # Print summary tables  (mean ± std)
+    # ============================================================
+    col_w = 18   # wide enough for "12.345±0.012"
+    case_w = 8
 
-    for case_name, _, _, _, _ in TEST_CASES:
-        row = f"{case_name:<{case_w}}"
+    def print_table(title: str, unit: str, value_fn):
+        print()
+        print("=" * (case_w + (col_w + 3) * len(ALGO_NAMES)))
+        print(f"  {title} ({unit})  —  mean ± std  [{N_ROUNDS} rounds]")
+        print("=" * (case_w + (col_w + 3) * len(ALGO_NAMES)))
+        header = f"{'Case':<{case_w}}"
         for algo in ALGO_NAMES:
-            r = results[case_name][algo]
-            if r["success"]:
-                row += f" | {r['time_sec']:>{col_w}.3f}"
-            else:
-                row += f" | {'FAIL':>{col_w}}"
-        print(row)
+            header += f" | {algo:^{col_w}}"
+        print(header)
+        print("-" * len(header))
+        for case_name, *_ in TEST_CASES:
+            row = f"{case_name:<{case_w}}"
+            for algo in ALGO_NAMES:
+                agg = results[case_name][algo]
+                cell = value_fn(agg)
+                row += f" | {cell:^{col_w}}"
+            print(row)
 
-    print()
-    print("=" * 80)
-    print("  FITNESS TABLE (lower is better)")
-    print("=" * 80)
+    print_table(
+        "COMPUTATION TIME", "seconds",
+        lambda a: fmt_mean_std(a["time_mean"], a["time_std"]) if a["success"] else "FAIL",
+    )
 
-    print(header)
-    print("-" * len(header))
+    print_table(
+        "FITNESS", "lower is better",
+        lambda a: fmt_mean_std(a["fitness_mean"], a["fitness_std"], 4)
+                  if a["success"] and a["fitness_mean"] < float("inf") else "FAIL",
+    )
 
-    for case_name, _, _, _, _ in TEST_CASES:
-        row = f"{case_name:<{case_w}}"
-        for algo in ALGO_NAMES:
-            r = results[case_name][algo]
-            if r["success"] and r["fitness"] < float("inf"):
-                row += f" | {r['fitness']:>{col_w}.4f}"
-            else:
-                row += f" | {'FAIL':>{col_w}}"
-        print(row)
+    print_table(
+        "DISTANCE", "km",
+        lambda a: fmt_mean_std(a["distance_mean"], a["distance_std"], 2) if a["success"] else "FAIL",
+    )
 
-    print()
-    print("=" * 80)
-    print("  DISTANCE TABLE (km)")
-    print("=" * 80)
+    print_table(
+        "TRAVEL TIME", "minutes",
+        lambda a: fmt_mean_std(a["time_min_mean"], a["time_min_std"], 1) if a["success"] else "FAIL",
+    )
 
-    print(header)
-    print("-" * len(header))
+    print_table(
+        "CO2 EMISSIONS", "kg",
+        lambda a: fmt_mean_std(a["co2_mean"], a["co2_std"], 3) if a["success"] else "FAIL",
+    )
 
-    for case_name, _, _, _, _ in TEST_CASES:
-        row = f"{case_name:<{case_w}}"
-        for algo in ALGO_NAMES:
-            r = results[case_name][algo]
-            if r["success"]:
-                row += f" | {r['distance_km']:>{col_w}.2f}"
-            else:
-                row += f" | {'FAIL':>{col_w}}"
-        print(row)
+    print_table(
+        "AVG PLACE RATING", "higher is better",
+        lambda a: fmt_mean_std(a["rating_mean"], a["rating_std"], 2) if a["success"] else "FAIL",
+    )
 
     # ============================================================
-    # Save CSV
+    # Save CSV — summary (mean ± std)
     # ============================================================
-    csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "benchmark_results.csv")
+    out_dir = PROJECT_ROOT
+
+    csv_path = os.path.join(out_dir, "benchmark_results.csv")
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=[
             "case", "description", "trip_days", "lifestyle", "n_places",
-            "algorithm", "time_sec", "fitness", "distance_km", "time_min",
-            "co2_kg", "feasible", "violations",
+            "algorithm", "n_rounds", "success_count", "feasible_count",
+            "time_mean", "time_std",
+            "fitness_mean", "fitness_std",
+            "distance_mean", "distance_std",
+            "time_min_mean", "time_min_std",
+            "co2_mean", "co2_std",
+            "rating_mean", "rating_std",
+            "violations",
         ])
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    print(f"\n  Results saved to: {csv_path}")
-    print("=" * 80)
+    # Save CSV — all 10 raw rounds
+    raw_path = os.path.join(out_dir, "benchmark_raw.csv")
+    with open(raw_path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "case", "description", "trip_days", "lifestyle", "n_places",
+            "algorithm", "round", "success",
+            "time_sec", "fitness", "distance_km", "time_min",
+            "co2_kg", "avg_rating", "feasible", "violations",
+        ])
+        writer.writeheader()
+        writer.writerows(raw_rows)
+
+    sep = "=" * (case_w + (col_w + 3) * len(ALGO_NAMES))
+    print(f"\n  Summary  saved to: {csv_path}")
+    print(f"  Raw data saved to: {raw_path}")
+    print(sep)
 
 
 if __name__ == "__main__":

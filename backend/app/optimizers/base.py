@@ -14,16 +14,18 @@ LUNCH_DURATION_MINUTES = 60
 
 
 class Route:
-    def __init__(self, day1_places: List[str], day2_places: List[str], hotel_id: str):
-        self.day1_places = day1_places
-        self.day2_places = day2_places
-        self.hotel_id = hotel_id
+    def __init__(self, day_places: List[List[str]], hotel_ids: List[str]):
+        self.day_places = day_places    # day_places[i] = ordered place IDs for day i+1
+        self.hotel_ids = hotel_ids      # hotel_ids[i] = hotel after day i+1 (len = num_days - 1)
+
+    @property
+    def num_days(self) -> int:
+        return len(self.day_places)
 
     def copy(self) -> "Route":
         return Route(
-            self.day1_places.copy(),
-            self.day2_places.copy(),
-            self.hotel_id,
+            [dp.copy() for dp in self.day_places],
+            self.hotel_ids.copy(),
         )
 
 
@@ -91,24 +93,50 @@ class RouteEvaluator:
             "feasible": current_time <= DAY_END_MINUTES,
         }
 
-    def evaluate_route(self, route: Route) -> Dict[str, Any]:
+    def _get_day_endpoints(self, route: Route) -> List[Tuple[str, str]]:
+        """Return (start_id, end_id) for each day in the route."""
         depot_id = self.depot.id
-        hotel_id = route.hotel_id
+        n = route.num_days
+        endpoints = []
+        for day_idx in range(n):
+            if n == 1:
+                start_id = depot_id
+                end_id = depot_id
+            elif day_idx == 0:
+                start_id = depot_id
+                end_id = route.hotel_ids[0]
+            elif day_idx == n - 1:
+                start_id = route.hotel_ids[-1]
+                end_id = depot_id
+            else:
+                start_id = route.hotel_ids[day_idx - 1]
+                end_id = route.hotel_ids[day_idx]
+            endpoints.append((start_id, end_id))
+        return endpoints
 
-        day1 = self.evaluate_day(route.day1_places, depot_id, hotel_id)
-        day2 = self.evaluate_day(route.day2_places, hotel_id, depot_id)
+    def evaluate_route(self, route: Route) -> Dict[str, Any]:
+        endpoints = self._get_day_endpoints(route)
+        days = []
+        total_dist = 0.0
+        total_time = 0.0
+        total_co2 = 0.0
+        all_feasible = True
 
-        total_dist = day1["distance_km"] + day2["distance_km"]
-        total_time = day1["time_min"] + day2["time_min"]
-        total_co2 = day1["co2_kg"] + day2["co2_kg"]
+        for day_idx, (start_id, end_id) in enumerate(endpoints):
+            day_eval = self.evaluate_day(route.day_places[day_idx], start_id, end_id)
+            days.append(day_eval)
+            total_dist += day_eval["distance_km"]
+            total_time += day_eval["time_min"]
+            total_co2 += day_eval["co2_kg"]
+            if not day_eval["feasible"]:
+                all_feasible = False
 
         return {
-            "day1": day1,
-            "day2": day2,
+            "days": days,
             "total_distance_km": total_dist,
             "total_time_min": total_time,
             "total_co2_kg": total_co2,
-            "feasible": day1["feasible"] and day2["feasible"],
+            "feasible": all_feasible,
         }
 
     def fitness(self, route: Route) -> float:
@@ -128,7 +156,7 @@ class RouteEvaluator:
             penalty += 10.0
 
         place_map = {p.id: p for p in self.data.places}
-        for day_places in [route.day1_places, route.day2_places]:
+        for day_places in route.day_places:
             otop_count = sum(
                 1 for pid in day_places
                 if pid in place_map and place_map[pid].type == PlaceType.OTOP
@@ -142,18 +170,17 @@ class RouteEvaluator:
 
     def check_constraints(self, route: Route) -> List[str]:
         violations = []
-        all_places = route.day1_places + route.day2_places
+        all_places = [pid for day in route.day_places for pid in day]
         if len(all_places) != len(set(all_places)):
             violations.append("Duplicate places across days")
 
         ev = self.evaluate_route(route)
-        if not ev["day1"]["feasible"]:
-            violations.append("Day 1 exceeds time window")
-        if not ev["day2"]["feasible"]:
-            violations.append("Day 2 exceeds time window")
+        for day_idx, day_eval in enumerate(ev["days"], 1):
+            if not day_eval["feasible"]:
+                violations.append(f"Day {day_idx} exceeds time window")
 
         place_map = {p.id: p for p in self.data.places}
-        for day_idx, day_places in enumerate([route.day1_places, route.day2_places], 1):
+        for day_idx, day_places in enumerate(route.day_places, 1):
             otop_count = sum(
                 1 for pid in day_places
                 if pid in place_map and place_map[pid].type == PlaceType.OTOP
@@ -191,6 +218,7 @@ class BaseOptimizer(ABC):
         all_candidates = self._get_candidate_places()
         hotels = self.data.get_hotels()
         otops = self.data.get_otop_places()
+        num_days = self.request.trip_days
 
         max_per_day = self.request.max_places_per_day
 
@@ -210,37 +238,36 @@ class BaseOptimizer(ABC):
         rng.shuffle(otop_pool)
 
         used_ids: set = set()
+        day_places: List[List[str]] = [[] for _ in range(num_days)]
 
-        otop1 = otop_pool[0] if len(otop_pool) >= 1 else None
-        otop2 = otop_pool[1] if len(otop_pool) >= 2 else (otop_pool[0] if otop_pool else None)
+        # Assign 1 OTOP per day
+        for d in range(num_days):
+            if d < len(otop_pool):
+                otop = otop_pool[d]
+            elif otop_pool:
+                otop = otop_pool[d % len(otop_pool)]
+            else:
+                otop = None
+            if otop and otop.id not in used_ids:
+                day_places[d].append(otop.id)
+                used_ids.add(otop.id)
 
-        day1: List[str] = []
-        day2: List[str] = []
+        # Fill remaining slots per day
+        for d in range(num_days):
+            fill = pick_non_otop(max_per_day - len(day_places[d]), used_ids)
+            for p in fill:
+                day_places[d].append(p.id)
+                used_ids.add(p.id)
+            rng.shuffle(day_places[d])
 
-        if otop1:
-            day1.append(otop1.id)
-            used_ids.add(otop1.id)
-        if otop2 and otop2.id not in used_ids:
-            day2.append(otop2.id)
-            used_ids.add(otop2.id)
+        # Select hotels (num_days - 1 hotels needed)
+        hotel_ids: List[str] = []
+        if hotels and num_days > 1:
+            for _ in range(num_days - 1):
+                h = hotels[rng.integers(0, len(hotels))]
+                hotel_ids.append(h.id)
 
-        fill1 = pick_non_otop(max_per_day - len(day1), used_ids)
-        for p in fill1:
-            day1.append(p.id)
-            used_ids.add(p.id)
-
-        fill2 = pick_non_otop(max_per_day - len(day2), used_ids)
-        for p in fill2:
-            day2.append(p.id)
-            used_ids.add(p.id)
-
-        rng.shuffle(day1)
-        rng.shuffle(day2)
-
-        hotel = hotels[rng.integers(0, len(hotels))] if hotels else None
-        hotel_id = hotel.id if hotel else "H1"
-
-        return Route(day1, day2, hotel_id)
+        return Route(day_places, hotel_ids)
 
     @abstractmethod
     def optimize(self) -> Route:

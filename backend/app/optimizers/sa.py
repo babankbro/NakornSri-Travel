@@ -30,46 +30,54 @@ class SAOptimizer(BaseOptimizer):
 
     def _neighbor(self, route: Route) -> Route:
         new_route = route.copy()
+        num_days = new_route.num_days
         move_type = self.rng.integers(0, 5)
 
         if move_type == 0:
-            day = self.rng.integers(0, 2)
-            places = new_route.day1_places if day == 0 else new_route.day2_places
+            # Swap two places within a random day
+            day = int(self.rng.integers(0, num_days))
+            places = new_route.day_places[day]
             if len(places) >= 2:
                 i, j = self.rng.choice(len(places), size=2, replace=False)
                 places[i], places[j] = places[j], places[i]
 
         elif move_type == 1:
-            day = self.rng.integers(0, 2)
-            places = new_route.day1_places if day == 0 else new_route.day2_places
+            # Reverse a segment within a random day
+            day = int(self.rng.integers(0, num_days))
+            places = new_route.day_places[day]
             if len(places) >= 2:
                 i, j = sorted(self.rng.choice(len(places), size=2, replace=False))
                 places[i:j + 1] = reversed(places[i:j + 1])
 
         elif move_type == 2:
-            if new_route.day1_places and new_route.day2_places:
-                i1 = self.rng.integers(0, len(new_route.day1_places))
-                i2 = self.rng.integers(0, len(new_route.day2_places))
-                new_route.day1_places[i1], new_route.day2_places[i2] = (
-                    new_route.day2_places[i2],
-                    new_route.day1_places[i1],
-                )
+            # Swap places between two different days
+            if num_days >= 2:
+                d1, d2 = self.rng.choice(num_days, size=2, replace=False)
+                if new_route.day_places[d1] and new_route.day_places[d2]:
+                    i1 = int(self.rng.integers(0, len(new_route.day_places[d1])))
+                    i2 = int(self.rng.integers(0, len(new_route.day_places[d2])))
+                    new_route.day_places[d1][i1], new_route.day_places[d2][i2] = (
+                        new_route.day_places[d2][i2],
+                        new_route.day_places[d1][i1],
+                    )
 
         elif move_type == 3:
-            day = self.rng.integers(0, 2)
-            places = new_route.day1_places if day == 0 else new_route.day2_places
-            other = new_route.day2_places if day == 0 else new_route.day1_places
-            used_ids = set(places + other)
-            candidates = [p for p in self._get_candidate_places() if p.id not in used_ids]
+            # Replace a place with an unused candidate
+            day = int(self.rng.integers(0, num_days))
+            places = new_route.day_places[day]
+            all_used = set(pid for d in new_route.day_places for pid in d)
+            candidates = [p for p in self._get_candidate_places() if p.id not in all_used]
             if places and candidates:
-                idx = self.rng.integers(0, len(places))
+                idx = int(self.rng.integers(0, len(places)))
                 new_place = candidates[self.rng.integers(0, len(candidates))]
                 places[idx] = new_place.id
 
         elif move_type == 4:
+            # Change a random hotel
             hotels = self.data.get_hotels()
-            if hotels:
-                new_route.hotel_id = hotels[self.rng.integers(0, len(hotels))].id
+            if hotels and new_route.hotel_ids:
+                h_idx = int(self.rng.integers(0, len(new_route.hotel_ids)))
+                new_route.hotel_ids[h_idx] = hotels[self.rng.integers(0, len(hotels))].id
 
         return new_route
 

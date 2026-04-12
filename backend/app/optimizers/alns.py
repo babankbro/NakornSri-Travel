@@ -18,21 +18,29 @@ class ALNSOperators:
             if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP)
         ]
 
+    def _all_place_ids(self, route: Route) -> List[str]:
+        """Get flattened list of all place IDs across all days."""
+        return [pid for day in route.day_places for pid in day]
+
+    def _remove_from_route(self, route: Route, pid: str):
+        """Remove a place ID from whichever day it belongs to."""
+        for day in route.day_places:
+            if pid in day:
+                day.remove(pid)
+                return
+
     # ---- Destroy operators ----
 
     def random_removal(self, route: Route, n_remove: int = 2) -> Tuple[Route, List[str]]:
         new_route = route.copy()
         removed = []
         for _ in range(n_remove):
-            all_places = new_route.day1_places + new_route.day2_places
+            all_places = self._all_place_ids(new_route)
             if not all_places:
                 break
             idx = self.rng.integers(0, len(all_places))
             pid = all_places[idx]
-            if pid in new_route.day1_places:
-                new_route.day1_places.remove(pid)
-            else:
-                new_route.day2_places.remove(pid)
+            self._remove_from_route(new_route, pid)
             removed.append(pid)
         return new_route, removed
 
@@ -43,29 +51,23 @@ class ALNSOperators:
             worst_pid = None
             worst_cost = -float("inf")
             base_fitness = evaluator.fitness(new_route)
-            for day_list in [new_route.day1_places, new_route.day2_places]:
-                for pid in day_list:
+            for day in new_route.day_places:
+                for pid in day:
                     temp = new_route.copy()
-                    if pid in temp.day1_places:
-                        temp.day1_places.remove(pid)
-                    else:
-                        temp.day2_places.remove(pid)
+                    self._remove_from_route(temp, pid)
                     new_fitness = evaluator.fitness(temp)
                     cost_reduction = base_fitness - new_fitness
                     if cost_reduction > worst_cost:
                         worst_cost = cost_reduction
                         worst_pid = pid
             if worst_pid:
-                if worst_pid in new_route.day1_places:
-                    new_route.day1_places.remove(worst_pid)
-                else:
-                    new_route.day2_places.remove(worst_pid)
+                self._remove_from_route(new_route, worst_pid)
                 removed.append(worst_pid)
         return new_route, removed
 
     def shaw_removal(self, route: Route, n_remove: int = 2) -> Tuple[Route, List[str]]:
         new_route = route.copy()
-        all_places = new_route.day1_places + new_route.day2_places
+        all_places = self._all_place_ids(new_route)
         if len(all_places) < 2:
             return new_route, []
         seed_pid = all_places[self.rng.integers(0, len(all_places))]
@@ -85,10 +87,7 @@ class ALNSOperators:
             removed.append(pid)
 
         for pid in removed:
-            if pid in new_route.day1_places:
-                new_route.day1_places.remove(pid)
-            elif pid in new_route.day2_places:
-                new_route.day2_places.remove(pid)
+            self._remove_from_route(new_route, pid)
         return new_route, removed
 
     # ---- Repair operators ----
@@ -99,32 +98,41 @@ class ALNSOperators:
             best_fitness = float("inf")
             best_day = None
             best_pos = None
-            for day_idx, day_list in enumerate([new_route.day1_places, new_route.day2_places]):
+            for day_idx, day_list in enumerate(new_route.day_places):
                 if len(day_list) >= self.request.max_places_per_day:
                     continue
                 for pos in range(len(day_list) + 1):
                     temp = new_route.copy()
-                    target = temp.day1_places if day_idx == 0 else temp.day2_places
-                    target.insert(pos, pid)
+                    temp.day_places[day_idx].insert(pos, pid)
                     f = evaluator.fitness(temp)
                     if f < best_fitness:
                         best_fitness = f
                         best_day = day_idx
                         best_pos = pos
             if best_day is not None:
-                target = new_route.day1_places if best_day == 0 else new_route.day2_places
-                target.insert(best_pos, pid)
+                new_route.day_places[best_day].insert(best_pos, pid)
         return new_route
 
     def random_insert(self, route: Route, removed: List[str]) -> Route:
         new_route = route.copy()
+        num_days = new_route.num_days
         for pid in removed:
-            day = self.rng.integers(0, 2)
-            day_list = new_route.day1_places if day == 0 else new_route.day2_places
+            day = int(self.rng.integers(0, num_days))
+            day_list = new_route.day_places[day]
             if len(day_list) >= self.request.max_places_per_day:
-                day_list = new_route.day2_places if day == 0 else new_route.day1_places
-            if len(day_list) < self.request.max_places_per_day:
-                pos = self.rng.integers(0, len(day_list) + 1)
+                # Try other days
+                inserted = False
+                for d in range(num_days):
+                    if len(new_route.day_places[d]) < self.request.max_places_per_day:
+                        pos = int(self.rng.integers(0, len(new_route.day_places[d]) + 1))
+                        new_route.day_places[d].insert(pos, pid)
+                        inserted = True
+                        break
+                if not inserted and len(day_list) < self.request.max_places_per_day + 1:
+                    pos = int(self.rng.integers(0, len(day_list) + 1))
+                    day_list.insert(pos, pid)
+            else:
+                pos = int(self.rng.integers(0, len(day_list) + 1))
                 day_list.insert(pos, pid)
         return new_route
 
@@ -138,13 +146,12 @@ class ALNSOperators:
             best_pos = None
             for pid in remaining:
                 insert_costs = []
-                for day_idx, day_list in enumerate([new_route.day1_places, new_route.day2_places]):
+                for day_idx, day_list in enumerate(new_route.day_places):
                     if len(day_list) >= self.request.max_places_per_day:
                         continue
                     for pos in range(len(day_list) + 1):
                         temp = new_route.copy()
-                        target = temp.day1_places if day_idx == 0 else temp.day2_places
-                        target.insert(pos, pid)
+                        temp.day_places[day_idx].insert(pos, pid)
                         f = evaluator.fitness(temp)
                         insert_costs.append((f, day_idx, pos))
                 if len(insert_costs) >= 2:
@@ -161,8 +168,7 @@ class ALNSOperators:
                         best_day = insert_costs[0][1]
                         best_pos = insert_costs[0][2]
             if best_pid and best_day is not None:
-                target = new_route.day1_places if best_day == 0 else new_route.day2_places
-                target.insert(best_pos, best_pid)
+                new_route.day_places[best_day].insert(best_pos, best_pid)
                 remaining.remove(best_pid)
             else:
                 break

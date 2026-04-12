@@ -21,31 +21,47 @@ class SMOptimizer(BaseOptimizer):
         self.rng = np.random.default_rng(seed)
         self.verbose = verbose
 
-    def _select_hotel(self) -> str:
-        """Select the best hotel based on average distance to depot and candidate places."""
+    def _select_hotels(self) -> List[str]:
+        """Select the best hotels for overnight stays.
+
+        Returns a list of (trip_days - 1) hotel IDs.
+        For 1-day trips, returns empty list.
+        """
+        num_hotels_needed = self.request.trip_days - 1
+        if num_hotels_needed <= 0:
+            return []
+
         hotels = self.data.get_hotels()
         depot = self.data.get_depot()
         candidates = self._get_candidate_places()
 
         if not hotels:
             raise ValueError("No hotels available")
-        if len(hotels) == 1:
-            return hotels[0].id
 
-        best_hotel = hotels[0]
-        best_score = float("inf")
-
+        # Score each hotel by distance to depot + avg distance to candidates
+        scored = []
         for hotel in hotels:
             dist_to_depot = self.data.get_distance(depot.id, hotel.id)
             avg_to_candidates = np.mean([
                 self.data.get_distance(hotel.id, p.id) for p in candidates
             ]) if candidates else 0
             score = dist_to_depot + avg_to_candidates
-            if score < best_score:
-                best_score = score
-                best_hotel = hotel
+            scored.append((hotel.id, score))
 
-        return best_hotel.id
+        scored.sort(key=lambda x: x[1])
+
+        # Pick the top N distinct hotels
+        selected = []
+        for hotel_id, _ in scored:
+            if len(selected) >= num_hotels_needed:
+                break
+            selected.append(hotel_id)
+
+        # If not enough unique hotels, repeat the best one
+        while len(selected) < num_hotels_needed:
+            selected.append(scored[0][0])
+
+        return selected
 
     def _compute_savings(self, hub_id: str, place_ids: List[str]) -> List[Tuple[str, str, float]]:
         """Compute Clarke-Wright savings for all pairs relative to hub.
@@ -149,54 +165,69 @@ class SMOptimizer(BaseOptimizer):
 
     def optimize(self) -> Route:
         start_time = time.time()
+        num_days = self.request.trip_days
 
         print(f"\n{'='*60}")
         print(f"[SM] START  Saving Method (Clarke-Wright)")
-        print(f"[SM] max_places_per_day={self.request.max_places_per_day}")
+        print(f"[SM] trip_days={num_days}  max_places_per_day={self.request.max_places_per_day}")
         print(f"{'='*60}")
 
-        # Select hotel
-        hotel_id = self._select_hotel()
-        hotel = next(p for p in self.data.places if p.id == hotel_id)
+        # Select hotels
+        hotel_ids = self._select_hotels()
         depot = self.data.get_depot()
 
-        if self.verbose:
-            print(f"[SM] Selected hotel: {hotel.name} ({hotel_id})")
+        if self.verbose and hotel_ids:
+            hotel_names = []
+            for hid in hotel_ids:
+                h = next((p for p in self.data.places if p.id == hid), None)
+                hotel_names.append(f"{h.name} ({hid})" if h else hid)
+            print(f"[SM] Selected hotels: {', '.join(hotel_names)}")
+
+        # Build day endpoint chain: depot -> hotel1 -> hotel2 -> ... -> depot
+        endpoints = []
+        for day_idx in range(num_days):
+            if num_days == 1:
+                start_id = depot.id
+                end_id = depot.id
+            elif day_idx == 0:
+                start_id = depot.id
+                end_id = hotel_ids[0]
+            elif day_idx == num_days - 1:
+                start_id = hotel_ids[-1]
+                end_id = depot.id
+            else:
+                start_id = hotel_ids[day_idx - 1]
+                end_id = hotel_ids[day_idx]
+            endpoints.append((start_id, end_id))
 
         # Get all candidate place IDs
         candidates = self._get_candidate_places()
         all_candidate_ids = [p.id for p in candidates]
         otop_ids = [p.id for p in self.data.get_otop_places()]
 
-        # Build Day 1: Depot → places → Hotel
-        day1 = self._build_day_route(
-            hub_id=depot.id,
-            end_id=hotel_id,
-            available_ids=all_candidate_ids,
-            otop_ids=otop_ids,
-            max_places=self.request.max_places_per_day,
-        )
-        day1_set = set(day1)
+        # Build each day's route sequentially
+        used_ids: set = set()
+        day_places: List[List[str]] = []
 
-        if self.verbose:
-            ev1 = self.evaluator.evaluate_day(day1, depot.id, hotel_id)
-            print(f"[SM] Day 1: {day1}  dist={ev1['distance_km']:.2f}km  time={ev1['time_min']:.1f}min  feasible={ev1['feasible']}")
+        for day_idx in range(num_days):
+            start_id, end_id = endpoints[day_idx]
+            available = [pid for pid in all_candidate_ids if pid not in used_ids]
 
-        # Build Day 2: Hotel → places → Depot (exclude Day 1 places)
-        day2_available = [pid for pid in all_candidate_ids if pid not in day1_set]
-        day2 = self._build_day_route(
-            hub_id=hotel_id,
-            end_id=depot.id,
-            available_ids=day2_available,
-            otop_ids=otop_ids,
-            max_places=self.request.max_places_per_day,
-        )
+            day_route = self._build_day_route(
+                hub_id=start_id,
+                end_id=end_id,
+                available_ids=available,
+                otop_ids=otop_ids,
+                max_places=self.request.max_places_per_day,
+            )
+            day_places.append(day_route)
+            used_ids.update(day_route)
 
-        if self.verbose:
-            ev2 = self.evaluator.evaluate_day(day2, hotel_id, depot.id)
-            print(f"[SM] Day 2: {day2}  dist={ev2['distance_km']:.2f}km  time={ev2['time_min']:.1f}min  feasible={ev2['feasible']}")
+            if self.verbose:
+                ev = self.evaluator.evaluate_day(day_route, start_id, end_id)
+                print(f"[SM] Day {day_idx+1}: {day_route}  dist={ev['distance_km']:.2f}km  time={ev['time_min']:.1f}min  feasible={ev['feasible']}")
 
-        route = Route(day1, day2, hotel_id)
+        route = Route(day_places, hotel_ids)
         self.best_route = route
         self.best_fitness = self.evaluator.fitness(route)
         self.computation_time = time.time() - start_time

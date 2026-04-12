@@ -132,6 +132,7 @@ class GAAlnsOptimizer(BaseOptimizer):
                 ev = self.evaluator.evaluate_route(population[best_idx])
                 avg_fit = sum(fitnesses) / len(fitnesses)
                 worst_fit = max(fitnesses)
+                hotels_str = ",".join(self.best_route.hotel_ids) if self.best_route.hotel_ids else "none"
                 print(
                     f"[GA+ALNS] Gen {gen+1:>4}/{self.generations}"
                     f"  best_fit={self.best_fitness:.4f}"
@@ -140,7 +141,7 @@ class GAAlnsOptimizer(BaseOptimizer):
                     f"  dist={ev['total_distance_km']:.2f}km"
                     f"  time={ev['total_time_min']:.1f}min"
                     f"  co2={ev['total_co2_kg']:.3f}kg"
-                    f"  hotel={self.best_route.hotel_id}"
+                    f"  hotels={hotels_str}"
                 )
 
         print(f"[GA+ALNS] DONE  best_fit={self.best_fitness:.4f}  time={time.time()-start_time:.2f}s\n")

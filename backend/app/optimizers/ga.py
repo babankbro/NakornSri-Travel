@@ -70,64 +70,84 @@ class GAOptimizer(BaseOptimizer):
         if self.rng.random() > self.crossover_rate:
             return p1.copy()
 
-        child_day1 = self._order_crossover(p1.day1_places, p2.day1_places)
-        child_day2 = self._order_crossover(p1.day2_places, p2.day2_places)
+        num_days = p1.num_days
+        child_day_places = []
 
-        all_ids = set(child_day1 + child_day2)
-        if len(all_ids) < len(child_day1) + len(child_day2):
-            seen = set()
-            new_day2 = []
-            for pid in child_day2:
-                if pid not in set(child_day1):
-                    if pid not in seen:
-                        new_day2.append(pid)
-                        seen.add(pid)
+        for d in range(num_days):
+            child_day = self._order_crossover(p1.day_places[d], p2.day_places[d])
+            child_day_places.append(child_day)
+
+        # Remove cross-day duplicates
+        seen = set()
+        for d in range(num_days):
+            new_day = []
+            for pid in child_day_places[d]:
+                if pid not in seen:
+                    new_day.append(pid)
+                    seen.add(pid)
                 else:
+                    # Replace with an unused candidate
                     candidates = self._get_candidate_places()
-                    used = set(child_day1) | seen
-                    replacements = [p.id for p in candidates if p.id not in used]
+                    replacements = [p.id for p in candidates if p.id not in seen]
                     if replacements:
                         rep = replacements[self.rng.integers(0, len(replacements))]
-                        new_day2.append(rep)
+                        new_day.append(rep)
                         seen.add(rep)
-            child_day2 = new_day2
+            child_day_places[d] = new_day
 
-        hotel = self.rng.choice([p1.hotel_id, p2.hotel_id])
-        return Route(child_day1, child_day2, hotel)
+        # Hotel selection: randomly pick from either parent
+        child_hotel_ids = []
+        for i in range(len(p1.hotel_ids)):
+            if i < len(p2.hotel_ids):
+                child_hotel_ids.append(
+                    self.rng.choice([p1.hotel_ids[i], p2.hotel_ids[i]])
+                )
+            else:
+                child_hotel_ids.append(p1.hotel_ids[i])
+
+        return Route(child_day_places, child_hotel_ids)
 
     def _mutate(self, route: Route) -> Route:
         if self.rng.random() > self.mutation_rate:
             return route
 
+        num_days = route.num_days
         mutation_type = self.rng.integers(0, 4)
 
         if mutation_type == 0:
-            day = self.rng.integers(0, 2)
-            places = route.day1_places if day == 0 else route.day2_places
+            # Swap two places within a random day
+            day = int(self.rng.integers(0, num_days))
+            places = route.day_places[day]
             if len(places) >= 2:
                 i, j = self.rng.choice(len(places), size=2, replace=False)
                 places[i], places[j] = places[j], places[i]
 
         elif mutation_type == 1:
-            day = self.rng.integers(0, 2)
-            places = route.day1_places if day == 0 else route.day2_places
+            # Reverse a segment within a random day
+            day = int(self.rng.integers(0, num_days))
+            places = route.day_places[day]
             if len(places) >= 2:
                 i, j = sorted(self.rng.choice(len(places), size=2, replace=False))
                 places[i:j + 1] = reversed(places[i:j + 1])
 
         elif mutation_type == 2:
-            if route.day1_places and route.day2_places:
-                i1 = self.rng.integers(0, len(route.day1_places))
-                i2 = self.rng.integers(0, len(route.day2_places))
-                route.day1_places[i1], route.day2_places[i2] = (
-                    route.day2_places[i2],
-                    route.day1_places[i1],
-                )
+            # Swap places between two different days
+            if num_days >= 2:
+                d1, d2 = self.rng.choice(num_days, size=2, replace=False)
+                if route.day_places[d1] and route.day_places[d2]:
+                    i1 = int(self.rng.integers(0, len(route.day_places[d1])))
+                    i2 = int(self.rng.integers(0, len(route.day_places[d2])))
+                    route.day_places[d1][i1], route.day_places[d2][i2] = (
+                        route.day_places[d2][i2],
+                        route.day_places[d1][i1],
+                    )
 
         elif mutation_type == 3:
+            # Change a random hotel
             hotels = self.data.get_hotels()
-            if hotels:
-                route.hotel_id = hotels[self.rng.integers(0, len(hotels))].id
+            if hotels and route.hotel_ids:
+                h_idx = int(self.rng.integers(0, len(route.hotel_ids)))
+                route.hotel_ids[h_idx] = hotels[self.rng.integers(0, len(hotels))].id
 
         return route
 
@@ -166,6 +186,7 @@ class GAOptimizer(BaseOptimizer):
             if self.verbose:
                 ev = self.evaluator.evaluate_route(population[best_idx])
                 avg_fit = sum(fitnesses) / len(fitnesses)
+                hotels_str = ",".join(self.best_route.hotel_ids) if self.best_route.hotel_ids else "none"
                 print(
                     f"[GA] Gen {gen+1:>4}/{self.generations}"
                     f"  best_fit={self.best_fitness:.4f}"
@@ -173,7 +194,7 @@ class GAOptimizer(BaseOptimizer):
                     f"  dist={ev['total_distance_km']:.2f}km"
                     f"  time={ev['total_time_min']:.1f}min"
                     f"  co2={ev['total_co2_kg']:.3f}kg"
-                    f"  hotel={self.best_route.hotel_id}"
+                    f"  hotels={hotels_str}"
                 )
 
         print(f"[GA] DONE  best_fit={self.best_fitness:.4f}  time={time.time()-start_time:.2f}s\n")

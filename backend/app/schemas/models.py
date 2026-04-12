@@ -41,7 +41,7 @@ class Place(BaseModel):
 
 
 class OptimizeRequest(BaseModel):
-    trip_days: int = Field(default=2, ge=1, le=2)
+    trip_days: int = Field(default=2, ge=1, le=3)
     algorithm: AlgorithmType = AlgorithmType.GA
     lifestyle_type: LifestyleType = LifestyleType.ALL
     weight_distance: float = Field(default=0.4, ge=0, le=1)

@@ -77,19 +77,39 @@ class RouteOptimizerService:
         now = datetime.now()
         result_id = f"route_result_{now.strftime('%Y-%m-%d_%H%M%S')}"
 
-        hotel = next((p for p in self.data.places if p.id == route.hotel_id), None)
-        hotel_name = hotel.name if hotel else "Unknown"
+        # Build hotel name string
+        hotel_names = []
+        for hid in route.hotel_ids:
+            hotel = next((p for p in self.data.places if p.id == hid), None)
+            hotel_names.append(hotel.name if hotel else "Unknown")
+        selected_hotel = ", ".join(hotel_names) if hotel_names else None
+
+        # Build endpoint chain for each day
+        depot = self.data.get_depot()
+        num_days = route.num_days
+        day_endpoints = []  # (start_place, end_place) for each day
+        for day_idx in range(num_days):
+            if num_days == 1:
+                start_place = depot
+                end_place = depot
+            elif day_idx == 0:
+                start_place = depot
+                end_place = next((p for p in self.data.places if p.id == route.hotel_ids[0]), depot)
+            elif day_idx == num_days - 1:
+                start_place = next((p for p in self.data.places if p.id == route.hotel_ids[-1]), depot)
+                end_place = depot
+            else:
+                start_place = next((p for p in self.data.places if p.id == route.hotel_ids[day_idx - 1]), depot)
+                end_place = next((p for p in self.data.places if p.id == route.hotel_ids[day_idx]), depot)
+            day_endpoints.append((start_place, end_place))
 
         days = []
         map_days = []
-        depot = self.data.get_depot()
 
-        for day_idx, (day_key, day_places, start_place, end_place) in enumerate([
-            ("day1", route.day1_places, depot, hotel),
-            ("day2", route.day2_places, hotel, depot),
-        ], 1):
-            day_eval = evaluation[day_key]
-            color = DAY_COLORS[(day_idx - 1) % len(DAY_COLORS)]
+        for day_idx in range(num_days):
+            start_place, end_place = day_endpoints[day_idx]
+            day_eval = evaluation["days"][day_idx]
+            color = DAY_COLORS[day_idx % len(DAY_COLORS)]
 
             place_details = []
             markers = []
@@ -108,16 +128,14 @@ class RouteOptimizerService:
             ).model_dump())
 
             for i, sched in enumerate(day_eval["schedule"]):
-                # คำนวณเวลาเดินทางไปสถานที่ถัดไป
+                # Calculate travel time to next place
                 travel_time_to_next = None
                 if i < len(day_eval["schedule"]) - 1:
-                    # ไปสถานที่ถัดไป
                     next_sched = day_eval["schedule"][i + 1]
                     travel_time_to_next = self.data.get_travel_time(sched["id"], next_sched["id"])
                 else:
-                    # สถานที่สุดท้าย ไปที่พัก/depot
                     travel_time_to_next = self.data.get_travel_time(sched["id"], end_place.id)
-                
+
                 place_details.append({
                     "order": i + 1,
                     "id": sched["id"],
@@ -125,6 +143,7 @@ class RouteOptimizerService:
                     "type": sched["type"],
                     "lat": sched["lat"],
                     "lng": sched["lng"],
+                    "co2": sched["co2"],
                     "arrival": minutes_to_time_str(sched["arrival_min"]),
                     "departure": minutes_to_time_str(sched["departure_min"]),
                     "visit_time": sched["visit_time"],
@@ -154,7 +173,7 @@ class RouteOptimizerService:
             ).model_dump())
 
             days.append({
-                "day_no": day_idx,
+                "day_no": day_idx + 1,
                 "places": place_details,
                 "distance_km": round(day_eval["distance_km"], 2),
                 "time_min": round(day_eval["time_min"], 1),
@@ -164,7 +183,7 @@ class RouteOptimizerService:
             })
 
             map_days.append({
-                "day_no": day_idx,
+                "day_no": day_idx + 1,
                 "color": color,
                 "markers": markers,
                 "polyline": polyline,
@@ -182,7 +201,7 @@ class RouteOptimizerService:
                 "total_distance_km": round(evaluation["total_distance_km"], 2),
                 "total_time_min": round(evaluation["total_time_min"], 1),
                 "total_co2_kg": round(evaluation["total_co2_kg"], 3),
-                "selected_hotel": hotel_name,
+                "selected_hotel": selected_hotel,
                 "algorithm": request.algorithm.value,
                 "lifestyle_type": request.lifestyle_type.value,
             },

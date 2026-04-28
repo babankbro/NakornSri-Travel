@@ -6,19 +6,42 @@ Interactive Swagger docs: `http://localhost:8000/docs`
 
 ---
 
+## Core Principles & Error Semantics
+
+This API follows consistent design principles to ensure stability and predictability:
+
+1. **Validate at Boundaries:** All external data entering the system via the API is immediately validated against strongly-typed Pydantic schemas (e.g., `OptimizeRequest`). Internal services trust the data after it passes the boundary.
+2. **Predictable Naming:** Endpoints use RESTful conventions with predictable path segments (e.g., `/api/v1/routes`, `/api/v1/results`).
+3. **Consistent Error Semantics:** All API-level errors are returned with standard HTTP status codes and a consistent JSON shape provided by FastAPI.
+
+**Standard Error Response Format:**
+```json
+{
+  "detail": "Error description or validation message string/array"
+}
+```
+
+**Common Status Codes:**
+- `400 Bad Request`: Client sent invalid data (e.g., wrong file type, missing places).
+- `404 Not Found`: Requested resource does not exist (e.g., result ID not found).
+- `422 Unprocessable Entity`: Data failed structural validation against the Pydantic schema.
+- `500 Internal Server Error`: Server failure (e.g., Google API failure, algorithm crash).
+
+---
+
 ## File Import APIs (`/api/v1/files`)
 
 ### POST `/api/v1/files/places/import`
 
-Upload a places CSV file (TravelInfo.csv format).
+Upload a places CSV file (TravelInfo.csv format). Validates data structure and checks for the existence of required place types (Depot, Hotel, OTOP).
 
 **Request**: `multipart/form-data`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `file` | File | Yes | CSV file with columns: Order, ID, Name, LAT, LNG, VisitTime, RATE, CO2, TYPE |
+| `file` | File | Yes | CSV file containing place details |
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -27,13 +50,6 @@ Upload a places CSV file (TravelInfo.csv format).
   "valid": true,
   "errors": []
 }
-```
-
-**curl**:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/files/places/import \
-  -F "file=@TravelInfo.csv"
 ```
 
 ---
@@ -46,10 +62,10 @@ Upload custom distance and/or travel time matrix CSV files.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `distance_file` | File | No | Square matrix CSV (place IDs as row/column headers, values in km) |
+| `distance_file` | File | No | Square matrix CSV (values in km) |
 | `time_file` | File | No | Square matrix CSV (values in minutes) |
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -63,19 +79,19 @@ Upload custom distance and/or travel time matrix CSV files.
 
 ### POST `/api/v1/files/matrix/google`
 
-Fetch real driving distances and travel times from Google Distance Matrix API.
+Fetch real driving distances and travel times from Google Distance Matrix API. Falls back to Haversine on failure.
 
 **Request**: `application/json`
 
 ```json
 {
-  "api_key": "AIza..."
+  "api_key": "AIza..." 
 }
 ```
 
-If `api_key` is empty or omitted, falls back to the `GOOGLE_API_KEY` environment variable.
+*Note: `api_key` is optional if it is set via the `GOOGLE_API_KEY` environment variable in the backend.*
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -86,21 +102,13 @@ If `api_key` is empty or omitted, falls back to the `GOOGLE_API_KEY` environment
 }
 ```
 
-**curl**:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/files/matrix/google \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "AIza..."}'
-```
-
 ---
 
 ### GET `/api/v1/files/matrix/google/env-key-exists`
 
-Check if `GOOGLE_API_KEY` is set in the environment.
+Check if `GOOGLE_API_KEY` is set in the backend environment.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -114,7 +122,7 @@ Check if `GOOGLE_API_KEY` is set in the environment.
 
 Check Google matrix cache status.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -130,7 +138,7 @@ Check Google matrix cache status.
 
 Clear cached Google matrices and revert to Haversine calculations.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -143,9 +151,9 @@ Clear cached Google matrices and revert to Haversine calculations.
 
 ### POST `/api/v1/files/validate`
 
-Validate the currently loaded places data. Checks for the presence of a depot, hotels, tourist places, and OTOP places.
+Validate the currently loaded places data.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -161,23 +169,24 @@ Validate the currently loaded places data. Checks for the presence of a depot, h
 
 ### POST `/api/v1/routes/optimize`
 
-Run an optimization algorithm and save the result.
+Run an optimization algorithm based on user constraints and save the generated result.
 
-**Request**: `application/json`
+**Input Schema (`OptimizeRequest`)**: `application/json`
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `trip_days` | int (1-2) | `2` | Number of trip days |
-| `algorithm` | string | `"ga"` | Algorithm: `sm`, `ga`, `sa`, `sm_alns`, `sa_alns`, `ga_alns`, `lingo` |
-| `lifestyle_type` | string | `"all"` | Lifestyle filter: `all`, `culture`, `cafe`, `food` |
-| `weight_distance` | float (0-1) | `0.4` | Weight for distance in fitness function |
-| `weight_time` | float (0-1) | `0.3` | Weight for time in fitness function |
-| `weight_co2` | float (0-1) | `0.3` | Weight for CO2 in fitness function |
-| `max_places_per_day` | int (1-10) | `6` | Maximum tourist places to visit per day |
-| `start_place_type` | string | `"airport"` | Start point type |
-| `end_place_type` | string | `"airport"` | End point type |
+| Field | Type | Default | Constraints | Description |
+|-------|------|---------|-------------|-------------|
+| `trip_days` | integer | `2` | 1-3 | Number of trip days |
+| `algorithm` | string | `"ga"` | `sm`, `sa`, `ga`, etc. | Algorithm to run |
+| `lifestyle_type` | string | `"all"` | `all`, `culture`, `cafe`, `food` | Lifestyle filter |
+| `weight_distance` | float | `0.4` | 0-1 | Fitness distance weight |
+| `weight_co2` | float | `0.3` | 0-1 | Fitness CO2 weight |
+| `weight_rating` | float | `0.3` | 0-1 | Fitness rating weight |
+| `min_places_per_day` | integer | `3` | 1-10 | Minimum attractions per day |
+| `max_places_per_day` | integer | `7` | 1-10 | Max attractions per day |
+| `start_place_type` | string | `"airport"` | | Fixed starting point type |
+| `end_place_type` | string | `"airport"` | | Fixed ending point type |
 
-**Response** `200`:
+**Response Schema (`RouteSummary` meta)** `200 OK`:
 
 ```json
 {
@@ -195,31 +204,15 @@ Run an optimization algorithm and save the result.
 }
 ```
 
-**curl**:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/routes/optimize \
-  -H "Content-Type: application/json" \
-  -d '{
-    "trip_days": 2,
-    "algorithm": "sa",
-    "lifestyle_type": "culture",
-    "weight_distance": 0.4,
-    "weight_time": 0.3,
-    "weight_co2": 0.3,
-    "max_places_per_day": 5
-  }'
-```
-
 ---
 
 ### POST `/api/v1/routes/preview-map`
 
-Run optimization and return map data without saving the result to storage.
+Run optimization and return full map data without saving the result to disk. Useful for quick previews.
 
-**Request**: Same as `/optimize`.
+**Input Schema (`OptimizeRequest`)**: Same as `/optimize`.
 
-**Response** `200`:
+**Response Schema (`RouteResult` subset)** `200 OK`:
 
 ```json
 {
@@ -227,10 +220,45 @@ Run optimization and return map data without saving the result to storage.
   "map_data": {
     "center": [8.5396, 99.9447],
     "zoom": 11,
-    "days": [...]
+    "days": [
+      {
+        "day_no": 1,
+        "color": "#3B82F6",
+        "markers": [
+          {
+            "id": "D1",
+            "name": "Nakhon Si Thammarat Airport",
+            "lat": 8.5396,
+            "lng": 99.9447,
+            "type": "Depot",
+            "order_in_day": 0,
+            "arrival_time": "08:00",
+            "departure_time": "08:00"
+          }
+        ],
+        "polyline": [[8.5396, 99.9447], [8.4321, 99.9612]]
+      }
+    ]
   },
-  "summary": { ... },
-  "days": [ ... ]
+  "summary": {
+    "total_distance_km": 124.8,
+    "total_time_min": 390.0,
+    "total_co2_kg": 17.5,
+    "selected_hotel": "ABC Resort",
+    "algorithm": "ga",
+    "lifestyle_type": "all"
+  },
+  "days": [
+    {
+      "day_no": 1,
+      "places": [],
+      "distance_km": 62.4,
+      "time_min": 195.0,
+      "co2_kg": 8.75,
+      "start": { "id": "D1", "name": "Nakhon Si Thammarat Airport", "lat": 8.5396, "lng": 99.9447 },
+      "end": { "id": "H1", "name": "ABC Resort", "lat": 8.4321, "lng": 99.9612 }
+    }
+  ]
 }
 ```
 
@@ -240,19 +268,10 @@ Run optimization and return map data without saving the result to storage.
 
 Compare multiple optimization algorithms with the same parameters.
 
-**Query Parameters**:
+**Input Schema (Query Parameters)**:
+Same parameters as `OptimizeRequest`, mapped to query string fields, plus an `algorithms` comma-separated list.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `algorithms` | string | `"ga,sa"` | Comma-separated algorithm names |
-| `trip_days` | int | `2` | Number of trip days |
-| `lifestyle_type` | string | `"all"` | Lifestyle filter |
-| `weight_distance` | float | `0.4` | Distance weight |
-| `weight_time` | float | `0.3` | Time weight |
-| `weight_co2` | float | `0.3` | CO2 weight |
-| `max_places_per_day` | int | `6` | Max places per day |
-
-**Response** `200`:
+**Response Schema (List of `CompareItem`)** `200 OK`:
 
 ```json
 {
@@ -277,23 +296,15 @@ Compare multiple optimization algorithms with the same parameters.
 }
 ```
 
-**curl**:
-
-```bash
-curl "http://localhost:8000/api/v1/routes/compare?algorithms=ga,sa,sa_alns&trip_days=2&max_places_per_day=6"
-```
-
-> **Note**: The compare endpoint runs each algorithm sequentially and saves all results. This can take significant time with multiple algorithms.
-
 ---
 
 ## Result APIs (`/api/v1/results`)
 
 ### GET `/api/v1/results`
 
-List all saved results (from the manifest file).
+List all saved results.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -315,25 +326,24 @@ List all saved results (from the manifest file).
 
 ### GET `/api/v1/results/{result_id}`
 
-Get the full result including day-by-day itinerary and map data.
+Get the full `RouteResult` object including the day-by-day itinerary and map data.
 
-**Response** `200`: Full `RouteResult` object (see [Data Formats](data-formats.md#result-json)).
-
-**Response** `404`: `{"detail": "Result not found"}`
+**Response** `200 OK`: Full `RouteResult` object (see `Data Formats` documentation).
+**Response** `404 Not Found`: `{"detail": "Result not found"}`
 
 ---
 
 ### POST `/api/v1/results/import`
 
-Import a previously exported result JSON file.
+Import a previously exported `RouteResult` JSON file.
 
 **Request**: `multipart/form-data`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `file` | File | Yes | JSON file containing a RouteResult object |
+| `file` | File | Yes | JSON file containing a `RouteResult` payload |
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -342,6 +352,7 @@ Import a previously exported result JSON file.
   "valid": true
 }
 ```
+**Response** `400 Bad Request`: `{"detail": "Invalid JSON file"}`
 
 ---
 
@@ -349,9 +360,8 @@ Import a previously exported result JSON file.
 
 Delete a saved result and remove it from the manifest.
 
-**Response** `200`: `{"message": "Result deleted"}`
-
-**Response** `404`: `{"detail": "Result not found"}`
+**Response** `200 OK`: `{"message": "Result deleted"}`
+**Response** `404 Not Found`: `{"detail": "Result not found"}`
 
 ---
 
@@ -359,21 +369,14 @@ Delete a saved result and remove it from the manifest.
 
 Export a result as a downloadable file.
 
-**Query Parameters**:
+**Input Schema (Query Parameters)**:
 
 | Parameter | Type | Default | Options |
 |-----------|------|---------|---------|
 | `format` | string | `"json"` | `json`, `csv` |
 
-**curl**:
-
-```bash
-# Export as JSON
-curl -O http://localhost:8000/api/v1/results/route_result_2026-04-11_143025/export?format=json
-
-# Export as CSV
-curl -O http://localhost:8000/api/v1/results/route_result_2026-04-11_143025/export?format=csv
-```
+**Response** `200 OK`: Raw File Stream (`application/json` or `text/csv`)
+**Response** `404 Not Found`: `{"detail": "Result not found"}`
 
 ---
 
@@ -381,9 +384,9 @@ curl -O http://localhost:8000/api/v1/results/route_result_2026-04-11_143025/expo
 
 ### GET `/api/v1/results/{result_id}/map`
 
-Get map visualization data for a specific result.
+Get map visualization data for a specific result. Extracts `map_data` from the `RouteResult`.
 
-**Response** `200`:
+**Response Schema (`MapDay` array inside `map_data`)** `200 OK`:
 
 ```json
 {
@@ -405,7 +408,7 @@ Get map visualization data for a specific result.
           "departure_time": "08:00"
         }
       ],
-      "polyline": [[8.5396, 99.9447], [8.4321, 99.9612], ...]
+      "polyline": [[8.5396, 99.9447], [8.4321, 99.9612]]
     }
   ]
 }
@@ -415,9 +418,9 @@ Get map visualization data for a specific result.
 
 ### GET `/api/v1/map/points`
 
-Get all loaded places as map points.
+Get all currently loaded places formatted for map rendering.
 
-**Response** `200`:
+**Response Schema (`MapMarker`-like representation of `Place`)** `200 OK`:
 
 ```json
 {
@@ -440,9 +443,9 @@ Get all loaded places as map points.
 
 ### GET `/api/v1/map/legend`
 
-Get the map legend with colors and icons for each place type.
+Get the map legend with standard colors and icons for each place type.
 
-**Response** `200`:
+**Response** `200 OK`:
 
 ```json
 {
@@ -455,21 +458,3 @@ Get the map legend with colors and icons for each place type.
   ]
 }
 ```
-
----
-
-## Error Responses
-
-All endpoints return errors in this format:
-
-```json
-{
-  "detail": "Error description"
-}
-```
-
-| Status | Meaning |
-|--------|---------|
-| `400` | Bad request (missing data, invalid file format, validation error) |
-| `404` | Resource not found |
-| `500` | Internal server error (algorithm failure, Google API error) |

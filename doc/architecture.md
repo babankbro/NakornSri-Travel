@@ -1,195 +1,222 @@
 # System Architecture
 
-## High-Level Overview
+## 1. Executive Summary & Tech Stack
+The Travel Route File-Based System is an intelligent travel itinerary optimization platform designed for multi-day routes visiting tourist attractions in Nakhon Si Thammarat, Thailand. The system is designed as a standalone, file-based monolith with a clear separation between frontend visualization, API routing, orchestration, and optimization logic.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Frontend (index.html + app.js)                         │
-│  Tailwind CSS · Leaflet Maps · Vanilla JS               │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTP (fetch)
-┌────────────────────────▼────────────────────────────────┐
-│  FastAPI Application (main.py)                          │
-│  CORS · Static Files · Startup Hooks                    │
-├─────────────┬──────────┬──────────┬─────────────────────┤
-│  files.py   │ routes.py│results.py│ map_api.py          │
-│  /files/*   │ /routes/*│/results/*│ /map/*              │
-└──────┬──────┴────┬─────┴────┬─────┴──────┬──────────────┘
-       │           │          │            │
-┌──────▼───────────▼──────────▼────────────▼──────────────┐
-│  Services Layer                                          │
-│  ┌─────────────┐ ┌──────────────────┐ ┌──────────────┐  │
-│  │ DataLoader   │ │RouteOptimizerSvc │ │ResultManager │  │
-│  │ CSV + Google │ │ Orchestration    │ │ File CRUD    │  │
-│  └──────┬──────┘ └────────┬─────────┘ └──────┬───────┘  │
-│         │                 │                   │          │
-│  ┌──────▼─────────────────▼──────┐    ┌──────▼───────┐  │
-│  │  Optimizers                    │    │  storage/    │  │
-│  │  GA · SA · ALNS · Hybrids     │    │  results/    │  │
-│  │  base.py (Route, Evaluator)   │    │  manifests/  │  │
-│  └───────────────────────────────┘    │  exports/    │  │
-│                                       └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-       │                                       │
-┌──────▼───────┐                       ┌───────▼──────┐
-│  data/       │                       │  storage/    │
-│  CSV files   │                       │  JSON files  │
-└──────────────┘                       └──────────────┘
-```
+**Core Tech Stack:**
+- **Frontend:** Vanilla JavaScript (ES2020+), HTML5, Tailwind CSS (via CDN), Leaflet (for Maps), Font Awesome.
+- **Backend:** Python 3.11+, FastAPI, Uvicorn, Pandas (Data Manipulation), NumPy (Matrix Operations), Pydantic (Data Validation).
+- **Storage:** File-based (CSV for input data and caches, JSON for optimization results). No external database is required.
+- **External Dependencies:** Google Distance Matrix API (Optional, for real-world distance/time data).
 
-## Request Flow: Optimization
+## 2. Sub-Domain Mapping & Bounded Contexts
+The application logic is naturally grouped into three main Sub-domains:
 
-1. User configures parameters in the frontend and clicks "Calculate"
-2. Frontend sends `POST /api/v1/routes/optimize` with `OptimizeRequest` body
-3. `routes.py` retrieves `DataLoader` and `ResultManager` from `app_state`
-4. `RouteOptimizerService.optimize()` is called:
-   - Instantiates the appropriate optimizer (GA, SA, SA_ALNS, GA_ALNS)
-   - Optimizer generates/evolves routes using the loaded distance/time matrices
-   - Returns the best `Route` found
-5. `_build_result()` evaluates the best route, generates map data, builds the full result dict
-6. `ResultManager.save_result()` writes the result to `storage/results/` and updates the manifest
-7. API returns `result_id`, `summary`, and `computation_time_sec`
-8. Frontend fetches the full result via `GET /api/v1/results/{result_id}` and renders it
+1. **Data Ingestion & Validation Context (`backend/app/services/data_loader.py` & `backend/app/api/files.py`)**
+   - **Responsibility:** Loading, parsing, and validating `TravelInfo.csv` and Distance/Time matrices.
+   - **Google API Integration:** Batches and fetches driving distance/time matrices and manages caching.
+   - **Entities:** `Place`.
 
-## Backend Layers
+2. **Route Optimization Engine Context (`backend/app/optimizers/` & `backend/app/api/routes.py`)**
+   - **Responsibility:** Executing meta-heuristic algorithms (GA, SA, SM, ALNS, and hybrids) to generate optimal multi-day routes based on user constraints.
+   - **Entities:** `Route`, `OptimizeRequest`.
 
-### API Layer (`backend/app/api/`)
+3. **Results Storage & Map Generation Context (`backend/app/services/result_manager.py` & `backend/app/api/results.py`, `map_api.py`)**
+   - **Responsibility:** Persisting optimization outcomes to JSON files, maintaining the `results_manifest.json`, and exporting data as CSV/JSON.
+   - **Visualization:** Translating route plans into `MapDay` and `MapMarker` structures ready for Leaflet consumption.
+   - **Entities:** `RouteResult`, `RouteSummary`, `DayRoute`, `MapDay`, `MapMarker`.
 
-Four routers, each with a distinct prefix:
+## 3. High-Level System Overview Diagram
 
-| Router | Prefix | Responsibility |
-|--------|--------|----------------|
-| `files.py` | `/api/v1/files` | CSV import, Google Distance Matrix API, data validation |
-| `routes.py` | `/api/v1/routes` | Route optimization, preview, algorithm comparison |
-| `results.py` | `/api/v1/results` | Result CRUD, import/export |
-| `map_api.py` | `/api/v1` | Map points, route map data, legend |
+```mermaid
+C4Container
+    title System Context & Container Diagram: Travel Route Planner
 
-### Services Layer (`backend/app/services/`)
+    Person(user, "User / Tourist", "Interacts with UI to plan trips")
 
-| Service | Responsibility |
-|---------|----------------|
-| `DataLoader` | Loads places from CSV, computes distance/time matrices (Haversine or Google API), provides query methods for distances and place lookups |
-| `RouteOptimizerService` | Instantiates optimizers, runs optimization, builds result structure with day details and map data |
-| `ResultManager` | Saves/loads/deletes results as JSON files, maintains the results manifest, handles JSON and CSV export |
+    System_Boundary(c1, "Travel Route File-Based System") {
+        Container(spa, "Single Page Application", "HTML, Tailwind, Vanilla JS", "Provides user interface, map visualization, and configuration forms.")
+        
+        Container_Boundary(backend, "FastAPI Backend") {
+            Container(api, "API Layer", "FastAPI (Python)", "Handles HTTP requests, input validation via Pydantic, and REST responses.")
+            Container(services, "Services Layer", "Python", "Orchestrates data loading, result management, and calls optimizers.")
+            Container(optimizers, "Optimization Engine", "Python / NumPy", "Executes GA, SA, SM, ALNS to solve the TSP variant.")
+        }
+        
+        ContainerDb(fs_data, "Data Store (CSV)", "File System", "Stores TravelInfo.csv and Google API matrix caches.")
+        ContainerDb(fs_storage, "Results Store (JSON)", "File System", "Stores optimized route results and manifest.")
+    }
 
-### Optimizers Layer (`backend/app/optimizers/`)
+    System_Ext(google_maps, "Google Distance Matrix API", "Provides real-world driving distances and times.")
 
-| Module | Class | Description |
-|--------|-------|-------------|
-| `base.py` | `Route` | Solution representation: `day1_places`, `day2_places`, `hotel_id` |
-| `base.py` | `RouteEvaluator` | Evaluates routes: distance, time, CO2, feasibility, fitness score |
-| `base.py` | `BaseOptimizer` | Abstract base class with common methods (candidate generation, random route) |
-| `ga.py` | `GAOptimizer` | Genetic Algorithm with tournament selection, order crossover, 4 mutation types |
-| `sa.py` | `SAOptimizer` | Simulated Annealing with 5 neighborhood move types |
-| `alns.py` | `ALNSOperators` | Destroy (random, worst, Shaw) and repair (greedy, random, regret) operators |
-| `ga_alns.py` | `GAAlnsOptimizer` | Hybrid: GA evolution + ALNS local search on elite solutions |
-| `sa_alns.py` | `SAAlnsOptimizer` | Hybrid: SA acceptance + ALNS destroy/repair with adaptive weights |
-
-### Schemas (`backend/app/schemas/models.py`)
-
-Pydantic models for validation and serialization:
-
-- `Place` — individual location with id, name, lat/lng, visit_time, rate, co2, type
-- `PlaceType` — enum: `Depot`, `Hotel`, `Travel`, `Culture`, `OTOP`
-- `AlgorithmType` — enum: `sa`, `ga`, `sa_alns`, `ga_alns`, `lingo`
-- `LifestyleType` — enum: `all`, `culture`, `cafe`, `food`
-- `OptimizeRequest` — request body for optimization
-- `RouteResult`, `RouteSummary`, `DayRoute` — result structures
-- `MapMarker`, `MapDay` — map visualization data
-- `CompareItem` — algorithm comparison result entry
-
-### Utils (`backend/app/utils/distance.py`)
-
-- `haversine(lat1, lng1, lat2, lng2)` — great-circle distance in km
-- `compute_distance_matrix(lats, lngs)` — NxN distance matrix
-- `compute_travel_time_matrix(distance_matrix)` — converts distance to time at 60 km/h average
-
-## State Management
-
-The application uses a module-level `app_state` dict in `main.py` to hold singleton instances:
-
-```python
-app_state = {}
-
-@app.on_event("startup")
-async def startup():
-    data_loader = DataLoader()
-    # ... load data ...
-    result_manager = ResultManager()
-    app_state["data_loader"] = data_loader
-    app_state["result_manager"] = result_manager
+    Rel(user, spa, "Configures & views routes via", "HTTPS")
+    Rel(spa, api, "Makes REST API calls to", "JSON/HTTPS")
+    Rel(api, services, "Delegates business logic to", "Internal Call")
+    Rel(services, optimizers, "Runs algorithms via", "Internal Call")
+    
+    Rel(services, fs_data, "Reads/Writes CSV files", "File I/O")
+    Rel(services, fs_storage, "Reads/Writes JSON results", "File I/O")
+    Rel(services, google_maps, "Fetches distance/time matrices from", "HTTPS")
 ```
 
-Routers access these via helper functions:
+## 4. Project Tree Structure
 
-```python
-def get_services():
-    from backend.app.main import app_state
-    data_loader = app_state["data_loader"]
-    result_manager = app_state["result_manager"]
-    return ...
+```text
+travel-route-file-system/
+├── frontend/                     # [Frontend SPA]
+│   ├── index.html                # UI Layout
+│   └── js/app.js                 # API communication & Map rendering
+├── backend/app/
+│   ├── main.py                   # Application Entrypoint & State
+│   ├── api/                      # [API Layer]
+│   │   ├── files.py              # Data Ingestion
+│   │   ├── routes.py             # Optimization Triggers
+│   │   ├── results.py            # Result CRUD
+│   │   └── map_api.py            # Map Data Endpoints
+│   ├── services/                 # [Services Layer]
+│   │   ├── data_loader.py        # CSV Parsing & Google API Integration
+│   │   ├── route_optimizer.py    # Orchestration of algorithms
+│   │   └── result_manager.py     # JSON/Manifest File Management
+│   ├── optimizers/               # [Optimization Engine]
+│   │   ├── base.py               # Route, RouteEvaluator abstract bases
+│   │   ├── ga.py, sa.py, sm.py   # Core Algorithms
+│   │   ├── alns.py               # ALNS Operators
+│   │   └── ga_alns.py, sa_alns.py, sm_alns.py # Hybrid Algorithms
+│   └── schemas/
+│       └── models.py             # Pydantic Schemas (Input Validation)
+├── data/                         # [Data Store Context]
+│   ├── TravelInfo.csv            
+│   └── inputs/                   # Matrix caches
+└── storage/                      # [Results Store Context]
+    ├── results/                  # Generated JSON results
+    ├── manifests/                # results_manifest.json
+    └── exports/                  # CSV/JSON exports
 ```
 
-## File-Based Storage Layout
+## 5. API Traces & Sequence Diagrams
 
-No database. All persistence uses the filesystem:
+**Flow: Route Optimization (`POST /api/v1/routes/optimize`)**
 
+```mermaid
+sequenceDiagram
+    participant Client as Frontend SPA
+    participant API as routes.py (API)
+    participant OptSvc as RouteOptimizerService
+    participant Optimizer as Algorithm (e.g. GA)
+    participant Evaluator as RouteEvaluator
+    participant ResSvc as ResultManager
+    participant FS as File System
+
+    Client->>API: POST /api/v1/routes/optimize (OptimizeRequest)
+    API->>API: Pydantic validates input boundaries
+    API->>OptSvc: optimize(request)
+    OptSvc->>Optimizer: instantiate & optimize()
+    
+    loop Evolution/Iterations
+        Optimizer->>Evaluator: evaluate_route(route)
+        Evaluator-->>Optimizer: fitness score
+    end
+    
+    Optimizer-->>OptSvc: best_route (Route)
+    OptSvc->>OptSvc: _build_result(evaluation, map_data)
+    OptSvc-->>API: RouteResult dict
+    
+    API->>ResSvc: save_result(RouteResult)
+    ResSvc->>FS: Write result_{id}.json
+    ResSvc->>FS: Update results_manifest.json
+    ResSvc-->>API: result_id
+    
+    API-->>Client: 200 OK { result_id, summary, time }
 ```
-data/
-├── TravelInfo.csv                      # Primary place data (loaded on startup)
-└── inputs/
-    ├── TravelInfo.csv                  # Uploaded via API
-    ├── google_distance_matrix.csv      # Cached Google distances (auto-saved)
-    └── google_travel_time_matrix.csv   # Cached Google travel times (auto-saved)
 
-storage/
-├── results/
-│   ├── route_result_2026-04-11_143025.json   # Individual result files
-│   └── ...
-├── manifests/
-│   └── results_manifest.json           # Index of all results (for quick listing)
-└── exports/
-    ├── route_result_2026-04-11_143025.json   # Exported copies
-    └── route_result_2026-04-11_143025.csv
+## 6. Data Models (ER Diagrams)
+
+```mermaid
+erDiagram
+    %% Core Entities
+    Place {
+        string id PK
+        string name
+        float lat
+        float lng
+        int visit_time
+        float rate
+        float co2
+        string type "Depot | Hotel | Travel | Culture | OTOP"
+    }
+
+    OptimizeRequest {
+        int trip_days
+        string algorithm
+        string lifestyle_type
+        float weight_distance
+        float weight_time
+        float weight_co2
+        int max_places_per_day
+    }
+
+    RouteResult {
+        string result_id PK
+        string created_at
+        float computation_time_sec
+    }
+
+    RouteSummary {
+        float total_distance_km
+        float total_time_min
+        float total_co2_kg
+        string selected_hotel
+        string algorithm
+    }
+
+    DayRoute {
+        int day_no
+        float distance_km
+        float time_min
+        float co2_kg
+    }
+
+    MapDay {
+        int day_no
+        string color
+    }
+
+    MapMarker {
+        string id
+        string name
+        float lat
+        float lng
+        string type
+        int order_in_day
+        string arrival_time
+        string departure_time
+    }
+
+    %% Relationships
+    RouteResult ||--o| OptimizeRequest : "generated_from"
+    RouteResult ||--|| RouteSummary : "contains"
+    RouteResult ||--o{ DayRoute : "has_days"
+    RouteResult ||--o{ MapDay : "contains_map_data"
+    
+    DayRoute ||--o{ Place : "visits"
+    MapDay ||--o{ MapMarker : "displays"
+    MapMarker }o--|| Place : "represents"
 ```
 
-## Distance Matrix Strategy
+## 7. Architectural Assessment & Recommendations
 
-The system supports three tiers of distance data, with automatic fallback:
+**Strengths:**
+- **Separation of Concerns:** The backend strictly separates API routing (`backend/app/api`), business logic orchestration (`services`), and pure algorithmic calculation (`optimizers`).
+- **Input Validation:** High reliance on Pydantic ensures the system operates strictly on typed, validated data boundaries. The `services/` layer trusts input implicitly.
+- **Portability:** Being entirely file-based avoids the overhead of managing a relational database (e.g., PostgreSQL). Ideal for local execution, desktop deployments, or prototype phases.
 
-```
-1. Google Distance Matrix API (most accurate — real driving distances & times)
-       │ fallback if no API key or API fails
-       ▼
-2. Cached Google matrices (CSV files from a previous API fetch)
-       │ fallback if no cache exists
-       ▼
-3. Haversine (straight-line distance, travel time at 60 km/h average)
-```
-
-On startup:
-- If cached Google matrices exist and match the number of places → use them
-- If `GOOGLE_API_KEY` is set in `.env` → fetch from Google API and cache the results
-- Otherwise → compute Haversine matrices from lat/lng coordinates
-
-Google API requests are batched (10 origins x 10 destinations per call) to stay within API limits. If individual pairs fail, Haversine is used as a per-pair fallback.
-
-## Frontend Architecture
-
-Single HTML page (`frontend/index.html`) served by FastAPI:
-
-- **Styles**: Tailwind CSS via CDN
-- **Maps**: Leaflet 1.9.4 via CDN (OpenStreetMap tiles)
-- **Icons**: Font Awesome 6.5 via CDN
-- **Logic**: `frontend/js/app.js` (706 lines, vanilla JavaScript)
-- **No build step** — served directly as static files
-
-FastAPI mounts the frontend directory and serves `index.html` on `GET /`:
-
-```python
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
-@app.get("/")
-async def serve_frontend():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
-```
+**Areas for Improvement / Technical Debt:**
+1. **Concurrency and Scaling:**
+   - **File-based Concurrency:** The `ResultManager` modifies the `results_manifest.json` via basic File I/O. If multiple optimization requests finish concurrently, there's a risk of a race condition leading to corrupted JSON or overwritten manifest entries.
+   - *Recommendation:* If deployed as a web service, introduce a lightweight lock (e.g., `filelock` library) or transition the manifest/results storage to a proper database (SQLite is a logical step up).
+2. **Global State (`app_state`):**
+   - Singletons like `DataLoader` and `ResultManager` are stored in an `app_state` dict during `startup`. This limits the ability to scale to multi-worker environments (e.g., multiple Gunicorn workers) because each worker will maintain its own data state in memory.
+   - *Recommendation:* Offload shared state (like parsed matrices) to an in-memory cache (Redis/Memcached) or ensure worker synchronization if deployed beyond a single process.
+3. **Frontend Modularity:**
+   - The frontend uses a single `app.js` (700+ lines) handling DOM manipulation, Leaflet lifecycle, and API fetching.
+   - *Recommendation:* While completely functional, separating API wrappers, Map Logic, and DOM Event listeners into distinct JS modules would enhance long-term maintainability.

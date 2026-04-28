@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Workflows & Flowcharts</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PlantUML for rendering flowcharts -->
+    <script src="https://cdn.jsdelivr.net/npm/plantuml-encoder@1.4.0/dist/plantuml-encoder.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll('.plantuml-src').forEach(function(el) {
+                var code = el.textContent.trim();
+                var encoded = plantumlEncoder.encode(code);
+                var img = document.createElement('img');
+                img.src = 'https://www.plantuml.com/plantuml/svg/' + encoded;
+                img.alt = 'PlantUML Diagram';
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                
+                var container = document.createElement('div');
+                container.className = 'plantuml flex justify-center bg-white p-4 rounded-lg border border-gray-200 my-8';
+                container.appendChild(img);
+                
+                el.parentNode.replaceChild(container, el);
+            });
+        });
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .pseudocode { font-family: 'Courier New', Courier, monospace; background-color: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; white-space: pre-wrap; font-size: 0.875rem; overflow-x: auto; }
+        .plantuml-src { display: none; }
+        h2 { border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; margin-top: 3rem; margin-bottom: 1.5rem; color: #1e40af; }
+        h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; color: #374151; font-weight: 600; }
+        ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; color: #4b5563; }
+        p { color: #4b5563; margin-bottom: 1rem; line-height: 1.6; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 md:p-8">
+    <div class="max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-md">
+        <h1 class="text-3xl md:text-4xl font-bold mb-2 text-blue-700">Algorithm Workflows & Flowcharts</h1>
+        <p class="text-lg text-gray-500 mb-8">Detailed workflows, PlantUML flowcharts, and pseudocode for all the optimization algorithms implemented in the Travel Route File-Based System.</p>
+
+        <!-- 1. Genetic Algorithm (GA) -->
+        <h2 class="text-2xl font-bold">1. Genetic Algorithm (GA)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Initialize:</strong> Generate an initial population of random, valid routes.</li>
+            <li><strong>Evaluate:</strong> Calculate fitness for all routes.</li>
+            <li><strong>Evolve:</strong> Loop for N generations:
+                <ul class="mt-2">
+                    <li><strong>Elitism:</strong> Carry over the top k routes to the next generation without changes.</li>
+                    <li><strong>Selection:</strong> Use tournament selection to pick parents.</li>
+                    <li><strong>Crossover:</strong> Combine parts of two parents to create a child route (Order Crossover).</li>
+                    <li><strong>Mutation:</strong> Randomly swap, reverse, or replace places/hotels in the child route.</li>
+                    <li><strong>Replace:</strong> The new population replaces the old one.</li>
+                </ul>
+            </li>
+            <li><strong>Result:</strong> Return the best route found across all generations.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Initialize Population N=100;
+:Evaluate Fitness;
+while (Gen &lt; 200?) is (Yes)
+  :Copy Top 5 Elite Routes;
+  while (New Pop &lt; 100?) is (Yes)
+    :Tournament Selection x2;
+    :Order Crossover prob=0.8;
+    :Mutation prob=0.3;
+    :Evaluate Child &amp; Add to New Pop;
+  endwhile (No)
+  :Update Global Best Route;
+endwhile (No)
+:End: Return Best;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization
+Create initial population P = GenerateRandomPopulation(size=100)
+Evaluate fitness for each route in P
+best_route = MinFitness(P)
+Generation = 1
+
+// 2. Evolution Loop
+WHILE Generation &lt;= 200 DO:
+    
+    Create new_population P_new
+    
+    // a. Elitism
+    Add Top 5 Elite from P to P_new
+    
+    WHILE size(P_new) &lt; 100 DO:
+        // b. Selection
+        Select parents P1, P2 from P based on fitness (Tournament, size=5)
+        
+        // c. Crossover
+        Apply Order Crossover to P1, P2 to create offspring child (rate=0.8)
+        
+        // d. Mutation
+        Apply mutation operator to child (rate=0.3)
+        
+        // e. Evaluation &amp; Replacement
+        Evaluate fitness for child and add to P_new
+    END WHILE
+    
+    // f. Update Population &amp; Best Solution
+    Replace old population P with P_new
+    Update best_route = MinFitness(P ∪ {best_route})
+    
+    // g. Update Generation Counter
+    Generation = Generation + 1
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route</div>
+
+        <!-- 2. Simulated Annealing (SA) -->
+        <h2 class="text-2xl font-bold">2. Simulated Annealing (SA)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Initialize:</strong> Generate a random initial route and set a starting temperature.</li>
+            <li><strong>Iterate per Temp:</strong> For a fixed number of iterations, explore the neighborhood.</li>
+            <li><strong>Neighborhood Move:</strong> Swap, reverse, or replace places/hotels to generate a neighbor.</li>
+            <li><strong>Acceptance:</strong> If the neighbor is better, accept it. If worse, accept it probabilistically based on the temperature.</li>
+            <li><strong>Cooling:</strong> Multiply the temperature by a cooling rate.</li>
+            <li><strong>Result:</strong> Return the best route found when the minimum temperature is reached.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Init Route, Temp=100;
+while (Temp &gt; 0.01?) is (Yes)
+  while (Iter &lt; 50?) is (Yes)
+    :Generate Random Neighbor;
+    :Delta = Neighbor - Current;
+    if (Delta &lt; 0?) then (Yes)
+      :Accept &amp; Update Current;
+      :Update Global Best;
+    else (No)
+      if (Rand() &lt; exp(-Delta/Temp)?) then (Yes)
+        :Accept &amp; Update Current;
+        :Update Global Best;
+      else (No)
+      endif
+    endif
+  endwhile (No)
+  :Temp = Temp * 0.995;
+endwhile (No)
+:End: Return Best;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization
+Create initial current_route = GenerateRandomRoute()
+best_route = current_route
+Set initial temperature Temp = 100.0
+
+// 2. Annealing Loop
+WHILE Temp &gt; 0.01 DO:
+    
+    // a. Iterations at current temperature
+    FOR Iteration from 1 to 50 DO:
+        
+        // b. Neighborhood Move
+        Generate neighbor from current_route (randomly swap/reverse/replace)
+        
+        // c. Evaluation
+        Calculate delta = Fitness(neighbor) - Fitness(current_route)
+        
+        // d. Acceptance Criterion
+        IF delta &lt; 0 OR Random() &lt; exp(-delta / Temp) THEN
+            current_route = neighbor
+            
+            // e. Update Best Solution
+            IF Fitness(current_route) &lt; Fitness(best_route) THEN
+                best_route = current_route
+            END IF
+        END IF
+    END FOR
+    
+    // f. Cooling Schedule
+    Temp = Temp * 0.995
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route</div>
+
+        <!-- 3. Saving Method (SM) -->
+        <h2 class="text-2xl font-bold">3. Saving Method (SM - Clarke-Wright Heuristic)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Select Hotels:</strong> Greedily select the best hotel(s) based on average distance to the depot and tourist spots.</li>
+            <li><strong>Compute Savings:</strong> For each day, compute the distance saved by combining two places rather than visiting them separately from the hub.</li>
+            <li><strong>Construct Route:</strong> Sort the savings and greedily append pairs of places into the day's route, respecting constraints.</li>
+            <li><strong>Optimize Order:</strong> Use a nearest-neighbor approach to finalize the ordering of places within each day.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Select Optimal Hotels;
+while (For Each Day?) is (Yes)
+  :Compute Clarke-Wright Savings;
+  :Sort Savings Descending;
+  :Add 1 OTOP &amp; 1 Food Place;
+  :Greedily Add Places via Savings;
+  if (Valid Limits &amp; Time?) then (Yes)
+    :Add Place to Day Route;
+  else (No)
+    :Check Next Saving Pair;
+  endif
+  :Fill Remaining Slots by Rate;
+  :Nearest-Neighbor Ordering;
+  :Store Day Route;
+endwhile (No)
+:Combine Days &amp; Hotels;
+:End: Return Final Route;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization
+Select optimal hotel_ids based on average distance (trip_days - 1)
+Initialize empty list route_days
+
+// 2. Day-by-Day Construction Loop
+FOR day = 1 to trip_days DO:
+    Set hub = Start location for day
+    Set end = End location for day
+    Define available_places = All candidates excluding already used
+    
+    // a. Savings Calculation
+    Compute Clarke-Wright savings for all pairs from hub
+    Sort savings in descending order
+    
+    // b. Initial Day Route
+    Initialize day_route with best OTOP place for hub
+    
+    // c. Greedily Add Places
+    FOR EACH pair IN sorted savings DO:
+        IF pair fits within max_places AND time_window THEN
+            Append pair to day_route
+        END IF
+    END FOR
+    
+    // d. Fill Remaining Slots
+    IF length(day_route) &lt; max_places THEN
+        Append best rated unused places to day_route
+    END IF
+    
+    // e. Finalize Order
+    Apply Nearest-Neighbor ordering to day_route
+    Append day_route to route_days
+END FOR
+
+// 3. Return Best Solution
+RETURN Route(route_days, hotel_ids)</div>
+
+        <!-- 4. GA + ALNS -->
+        <h2 class="text-2xl font-bold">4. Genetic Algorithm + ALNS (GA+ALNS)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Base:</strong> Uses the standard GA framework.</li>
+            <li><strong>Enhancement:</strong> Integrates ALNS (Adaptive Large Neighborhood Search) as a local search mechanism.</li>
+            <li><strong>Elite Polish:</strong> The top k elite routes are passed through the ALNS optimizer for refinement every generation.</li>
+            <li><strong>Child Polish:</strong> 30% of newly generated children are passed through the ALNS optimizer before being added to the population.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Initialize Pop N=50;
+while (Gen &lt; 80?) is (Yes)
+  :Apply ALNS Local Search to Top 5 Elite;
+  while (New Pop &lt; 50?) is (Yes)
+    :Tournament + Crossover;
+    :Mutation;
+    if (Rand &lt; 0.3?) then (Yes)
+      :Apply ALNS Local Search to Child;
+    else (No)
+    endif
+    :Add to New Pop;
+  endwhile (No)
+  :Update Global Best;
+endwhile (No)
+:End: Return Best;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization
+Create initial population P = GenerateRandomPopulation(size=50)
+Evaluate fitness for each route in P
+best_route = MinFitness(P)
+Generation = 1
+
+// 2. Evolution Loop with ALNS Enhancement
+WHILE Generation &lt;= 80 DO:
+    
+    Create new_population P_new
+    
+    // a. Elite Polish (ALNS Local Search)
+    FOR EACH elite IN Top 5 of P DO:
+        Apply ALNS Local Search (10 iterations) to elite
+        Add improved_elite to P_new
+    END FOR
+    
+    WHILE size(P_new) &lt; 50 DO:
+        // b. Selection
+        Select parents P1, P2 using Tournament Selection
+        
+        // c. Crossover &amp; Mutation
+        Apply Crossover to P1, P2 to create child
+        Apply Mutation to child
+        
+        // d. Child Polish (ALNS Local Search)
+        IF Random() &lt; 0.3 THEN
+            Apply ALNS Local Search (10 iterations) to child
+        END IF
+        
+        // e. Evaluation &amp; Replacement
+        Evaluate fitness for child and add to P_new
+    END WHILE
+    
+    // f. Update Population &amp; Best Solution
+    Replace old population P with P_new
+    Update best_route = MinFitness(P ∪ {best_route})
+    
+    // g. Update Generation Counter
+    Generation = Generation + 1
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route</div>
+
+        <!-- 5. SA + ALNS -->
+        <h2 class="text-2xl font-bold">5. Simulated Annealing + ALNS (SA+ALNS)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Base:</strong> Follows the SA temperature and acceptance schema.</li>
+            <li><strong>Neighborhood Generation:</strong> Instead of random moves, neighbors are generated by applying one Destroy operator and one Repair operator.</li>
+            <li><strong>Adaptive Weights:</strong> Operators are selected based on roulette wheel selection (weights). Weights are updated based on the historical success of the operators (adaptive).</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Init Route, Temp=50, Weights=1;
+while (Temp &gt; 0.1?) is (Yes)
+  while (Iter &lt; 15?) is (Yes)
+    :Select Destroy &amp; Repair Ops via Weights;
+    :Apply Destroy -&gt; Repair;
+    :Delta = Neighbor - Current;
+    if (Delta &lt; 0 or Prob?) then (Yes)
+      :Accept Neighbor &amp; Score Ops;
+    else (No)
+      :Reject;
+    endif
+  endwhile (No)
+  :Update Op Weights per 100 iters;
+  :Temp = Temp * 0.99;
+endwhile (No)
+:End: Return Best;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization
+Create initial current_route = GenerateRandomRoute()
+best_route = current_route
+Set initial temperature Temp = 50.0
+Initialize destroy_weights and repair_weights (all 1.0)
+Total_Iterations = 0
+
+// 2. Annealing &amp; ALNS Loop
+WHILE Temp &gt; 0.1 DO:
+    
+    // a. Iterations at current temperature
+    FOR Iteration from 1 to 15 DO:
+        
+        // b. Adaptive Operator Selection
+        Select destroy_op based on destroy_weights
+        Select repair_op based on repair_weights
+        
+        // c. Neighborhood Move (Destroy &amp; Repair)
+        Apply destroy_op then repair_op to current_route to create neighbor
+        
+        // d. Evaluation
+        Calculate delta = Fitness(neighbor) - Fitness(current_route)
+        
+        // e. Acceptance &amp; Scoring
+        Set accept = False
+        IF delta &lt; 0 THEN
+            accept = True
+            Increase scores for destroy_op and repair_op (+3 or +2)
+        ELSE IF Random() &lt; exp(-delta / Temp) THEN
+            accept = True
+            Increase scores for destroy_op and repair_op (+1)
+        END IF
+        
+        // f. Update Route
+        IF accept is True THEN
+            current_route = neighbor
+            IF Fitness(current_route) &lt; Fitness(best_route) THEN
+                best_route = current_route
+            END IF
+        END IF
+        
+        Total_Iterations = Total_Iterations + 1
+    END FOR
+    
+    // g. Adaptive Weights Update
+    IF Total_Iterations is multiple of 100 THEN
+        Update destroy_weights and repair_weights based on scores
+    END IF
+    
+    // h. Cooling Schedule
+    Temp = Temp * 0.99
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route</div>
+
+        <!-- 6. SM + ALNS -->
+        <h2 class="text-2xl font-bold">6. Saving Method + ALNS (SM+ALNS)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Phase 1 (Construction):</strong> Run the deterministic SM optimizer to rapidly build a high-quality initial solution.</li>
+            <li><strong>Phase 2 (Refinement):</strong> Pass the SM route into an ALNS loop.</li>
+            <li><strong>ALNS Loop:</strong> For N iterations, randomly destroy and repair the route, greedily accepting any improvements.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Phase 1: Run SM Optimizer;
+:Init ALNS Loop with SM Route;
+while (Iter &lt; 100?) is (Yes)
+  :Select Random Destroy &amp; Repair Ops;
+  :Destroy -&gt; Repair;
+  if (Fitness &lt; Current?) then (Yes)
+    :Accept &amp; Update Best;
+  else (No)
+    :Reject;
+  endif
+endwhile (No)
+:End: Return Best;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization (Phase 1: Construction)
+Create initial current_route = Run SM_Optimize() to generate high-quality base
+best_route = current_route
+
+// 2. Refinement Loop (Phase 2: ALNS)
+FOR Iteration from 1 to 100 DO:
+    
+    // a. Operator Selection
+    Select random destroy_op (Random, Worst, Shaw)
+    Select random repair_op (Greedy, Random, Regret)
+    
+    // b. Neighborhood Move (Destroy &amp; Repair)
+    Apply destroy_op then repair_op to current_route to create neighbor
+    
+    // c. Evaluation &amp; Acceptance
+    IF Fitness(neighbor) &lt; Fitness(current_route) THEN
+        current_route = neighbor
+        
+        // d. Update Best Solution
+        IF Fitness(current_route) &lt; Fitness(best_route) THEN
+            best_route = current_route
+        END IF
+    END IF
+END FOR
+
+// 3. Return Best Solution
+RETURN best_route</div>
+
+        <!-- 7. MOMA -->
+        <h2 class="text-2xl font-bold">7. Multi-Objective Memetic Algorithm (MOMA)</h2>
+        <h3>Workflow</h3>
+        <ul>
+            <li><strong>Initialization:</strong> Create an initial population where 10% are derived from the Saving Method (SM) for rapid convergence, and the rest are generated randomly.</li>
+            <li><strong>NSGA-II Backbone:</strong> Evaluate all routes across three distinct objectives (Distance, CO2, and negative Rating). Do not collapse these into a single scalar fitness. Instead, assign a Non-Dominated Pareto Rank and a Crowding Distance to each route.</li>
+            <li><strong>Strict Elitism:</strong> At the start of each generation, the top routes (from the 1st Pareto Front) are explicitly protected and carried over without any mutation.</li>
+            <li><strong>Reproduction & ALNS:</strong> Generate offspring via Tournament Selection (preferring better rank and wider crowding distance) and Order Crossover. Apply ALNS (Memetic local search) exclusively to the offspring.</li>
+        </ul>
+
+        <h3>Flowchart</h3>
+        <pre class="plantuml-src">
+@startuml
+start
+:Phase 1: Initialization;
+:Generate 10% of Pop using SM (Saving Method);
+:Generate 90% of Pop Randomly;
+:Evaluate all solutions (Distance, CO2, Rating);
+
+while (Gen &lt; Max Generations?) is (Yes)
+  :Phase 2: NSGA-II Evaluation;
+  :Non-dominated Sorting (Fast Pareto Ranking);
+  :Calculate Crowding Distance;
+  
+  :Phase 3: Strict Elitism;
+  :Copy Top N Elites (Rank 1) to New Pop;
+
+  :Phase 4: Reproduction &amp; Genetic Ops;
+  while (New Pop &lt; Pop Size?) is (Yes)
+    :Tournament Selection (Rank &amp; Crowding);
+    :Order Crossover;
+    if (Rand &lt; ALNS_Mutation_Rate?) then (Yes)
+      :Phase 5: Memetic Local Search (ALNS);
+      :Select Destroy &amp; Repair Ops;
+      :Apply ALNS to Child;
+    else (No)
+      :Standard Random Mutation;
+    endif
+    :Add Child to New Pop;
+  endwhile (No)
+  
+  :Merge Parent + Child Populations;
+  :Keep top N using NSGA-II elitism;
+endwhile (No)
+
+:End: Return Best Scalar Route from 1st Pareto Front;
+stop
+@enduml
+        </pre>
+
+        <h3>Pseudocode</h3>
+        <div class="pseudocode">// 1. Initialization (Phase 1: Hybrid Seed)
+Create empty population P
+P_SM = Generate routes using SM_Optimize() (10% of Pop size)
+P_Random = GenerateRandomPopulation(90% of Pop size)
+P = P_SM ∪ P_Random
+Evaluate multiple objectives for each route in P (F1: Dist, F2: CO2, F3: -Rating)
+
+Generation = 1
+
+// 2. Evolution Loop (Phase 2: NSGA-II Backbone)
+WHILE Generation &lt;= Max_Generations DO:
+    
+    Create new_population P_child
+    
+    // a. Strict Elitism
+    Assign Pareto Ranks using Non-dominated Sorting on P
+    Copy Top N Elites directly from P to P_child
+    
+    // b. Reproduction
+    WHILE size(P_child) &lt; Pop_Size DO:
+        // Selection based on Pareto Rank and Crowding Distance
+        Select parents P1, P2 using Binary Tournament
+        Child = Order_Crossover(P1, P2)
+        
+        // c. Memetic Local Search (Phase 3: ALNS Injection)
+        IF Random() &lt; ALNS_Mutation_Rate THEN
+            destroy_op = Select Random Destroy
+            repair_op = Select Random Repair
+            Child = repair_op(destroy_op(Child))
+        ELSE IF Random() &lt; Standard_Mutation_Rate THEN
+            Child = Mutate_Swap_or_Reverse(Child)
+        END IF
+        
+        Add Child to P_child
+    END WHILE
+    
+    // d. Environmental Selection
+    P_combined = P ∪ P_child
+    Assign Pareto Ranks on P_combined
+    Calculate Crowding Distance
+    P = SelectTopN(P_combined, Pop_Size)
+    
+    Generation = Generation + 1
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_balanced_route_from(Pareto_Front(P))</div>
+
+        <!-- 8. ALNS Operators Reference -->
+        <h2 class="text-2xl font-bold">8. ALNS Operators Reference</h2>
+        
+        <h3>Destroy Operators</h3>
+        <ul>
+            <li><strong>Random Removal:</strong> Randomly selects N places and removes them from the route. Promotes broad exploration.</li>
+            <li><strong>Worst Removal:</strong> Iteratively evaluates the cost reduction of removing each place, and removes the N places that improve the fitness the most.</li>
+            <li><strong>Shaw Removal:</strong> Removes places that are geographically close to each other (based on distance matrix) to reorganize entire local clusters.</li>
+        </ul>
+
+        <h3>Repair Operators</h3>
+        <ul>
+            <li><strong>Greedy Insert:</strong> Tests every removed place at every possible insertion point and iteratively inserts the place that results in the lowest immediate fitness cost.</li>
+            <li><strong>Random Insert:</strong> Inserts removed places back into random valid positions across any day.</li>
+            <li><strong>Regret Insert:</strong> Evaluates the cost of inserting a place at its best position vs its second-best position (the "regret"). Inserts the place with the highest regret first, delaying easier decisions.</li>
+        </ul>
+        
+    </div>
+</body>
+</html>

@@ -106,8 +106,7 @@ class GAAlnsOptimizer(BaseOptimizer):
 
             for i in range(self.elite_size):
                 elite = population[sorted_indices[i]].copy()
-                improved = self._alns_local_search(elite)
-                new_population.append(improved)
+                new_population.append(elite)
 
             while len(new_population) < self.population_size:
                 p1 = self._tournament_select(population, fitnesses)

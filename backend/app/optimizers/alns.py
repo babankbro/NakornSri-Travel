@@ -15,7 +15,7 @@ class ALNSOperators:
     def _get_all_candidate_ids(self) -> List[str]:
         return [
             p.id for p in self.data.places
-            if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP)
+            if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP, PlaceType.FOOD)
         ]
 
     def _all_place_ids(self, route: Route) -> List[str]:
@@ -117,12 +117,30 @@ class ALNSOperators:
         new_route = route.copy()
         num_days = new_route.num_days
         for pid in removed:
-            day = int(self.rng.integers(0, num_days))
+            p_type = next(p.type for p in self.data.places if p.id == pid)
+            day = None
+            
+            # If constrained, force it into the day that is missing this type
+            if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+                for d in range(num_days):
+                    if not any(next(p.type for p in self.data.places if p.id == p_id) == p_type for p_id in new_route.day_places[d]):
+                        day = d
+                        break
+            
+            if day is None:
+                day = int(self.rng.integers(0, num_days))
+                
             day_list = new_route.day_places[day]
             if len(day_list) >= self.request.max_places_per_day:
                 # Try other days
                 inserted = False
                 for d in range(num_days):
+                    if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+                        # Still must respect type constraint if trying other days
+                        has_type = any(next(p.type for p in self.data.places if p.id == p_id) == p_type for p_id in new_route.day_places[d])
+                        if has_type:
+                            continue
+                    
                     if len(new_route.day_places[d]) < self.request.max_places_per_day:
                         pos = int(self.rng.integers(0, len(new_route.day_places[d]) + 1))
                         new_route.day_places[d].insert(pos, pid)

@@ -41,6 +41,9 @@ from backend.app.optimizers.sa import SAOptimizer
 from backend.app.optimizers.sm_alns import SMAlnsOptimizer
 from backend.app.optimizers.ga_alns import GAAlnsOptimizer
 from backend.app.optimizers.sa_alns import SAAlnsOptimizer
+from backend.app.optimizers.pure_alns import PureALNSOptimizer
+from backend.app.optimizers.moma import MOMAOptimizer 
+
 
 
 # ============================================================
@@ -53,16 +56,16 @@ N_ROUNDS = 10  # Number of repeated runs per algorithm × test case
 # Test case definitions
 # ============================================================
 
-# Place IDs from TravelInfo.csv (44 total):
-# D1 (Depot), H1-H18 (Hotels), T1-T21 (Travel/Culture), P1-P4 (OTOP)
+# Place IDs from TravelInfo_v2.csv (63 total):
+# D1 (Depot), H1-H18 (Hotels), T1-T21 (Travel/Culture), P1-P4 (OTOP), R1-R19 (Food)
 
-SMALL1_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3"}
-SMALL2_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "T7", "T8"}
-SMALL3_IDS = {"D1", "H3", "H5", "P3", "P4", "T10", "T11", "T14", "T15", "H8"}
+SMALL1_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "R1", "R2"}
+SMALL2_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "T7", "T8", "R3", "R4"}
+SMALL3_IDS = {"D1", "H3", "H5", "H8", "P3", "P4", "T10", "T11", "T14", "T15", "R5", "R6"}
 
-LARGE1_IDS = {"D1"} | {f"H{i}" for i in range(1, 7)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 15)}
-LARGE2_IDS = {"D1"} | {f"H{i}" for i in range(1, 9)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 18)}
-LARGE3_IDS = {"D1"} | {f"H{i}" for i in range(1, 11)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 21)}
+LARGE1_IDS = {"D1"} | {f"H{i}" for i in range(1, 7)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 15)} | {f"R{i}" for i in range(1, 6)}
+LARGE2_IDS = {"D1"} | {f"H{i}" for i in range(1, 9)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 18)} | {f"R{i}" for i in range(1, 8)}
+LARGE3_IDS = {"D1"} | {f"H{i}" for i in range(1, 11)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 21)} | {f"R{i}" for i in range(1, 12)}
 
 # Real = all 44 places (no filter)
 REAL_ALL = None  # None means use all places
@@ -85,9 +88,11 @@ ALGORITHMS = {
     "SM":      {"class": SMOptimizer,     "kwargs": {}},
     "GA":      {"class": GAOptimizer,     "kwargs": {"population_size": 50, "generations": 100, "verbose": False}},
     "SA":      {"class": SAOptimizer,     "kwargs": {"verbose": False}},
+    "ALNS":    {"class": PureALNSOptimizer, "kwargs": {"alns_iterations": 50, "verbose": False}},
     "SM+ALNS": {"class": SMAlnsOptimizer, "kwargs": {"alns_iterations": 50, "verbose": False}},
-    "GA+ALNS": {"class": GAAlnsOptimizer, "kwargs": {"population_size": 30, "generations": 50, "alns_iterations": 10, "verbose": False}},
+    "GA+ALNS": {"class": GAAlnsOptimizer, "kwargs": {"population_size": 50, "generations": 100, "alns_iterations": 20, "verbose": False}},
     "SA+ALNS": {"class": SAAlnsOptimizer, "kwargs": {"verbose": False}},
+   # "MOMA":    {"class": MOMAOptimizer,   "kwargs": {"population_size": 30, "generations": 30, "alns_iterations": 2, "verbose": False}},
 }
 
 ALGO_NAMES = list(ALGORITHMS.keys())
@@ -273,9 +278,10 @@ def main():
             algorithm=AlgorithmType.SM,  # will be overridden
             lifestyle_type=LifestyleType(lifestyle),
             weight_distance=0.4,
-            weight_time=0.3,
             weight_co2=0.3,
-            max_places_per_day=6,
+            weight_rating=0.3,
+            min_places_per_day=3,
+            max_places_per_day=7,
         )
 
         results[case_name] = {}
@@ -354,7 +360,7 @@ def main():
     col_w = 18   # wide enough for "12.345±0.012"
     case_w = 8
 
-    def print_table(title: str, unit: str, value_fn):
+    def print_table(title: str, unit: str, value_key: str, is_lower_better: bool = True):
         print()
         print("=" * (case_w + (col_w + 3) * len(ALGO_NAMES)))
         print(f"  {title} ({unit})  —  mean ± std  [{N_ROUNDS} rounds]")
@@ -364,51 +370,50 @@ def main():
             header += f" | {algo:^{col_w}}"
         print(header)
         print("-" * len(header))
+        
         for case_name, *_ in TEST_CASES:
             row = f"{case_name:<{case_w}}"
+            
+            # Find the best value for this case across all algorithms
+            best_val = float("inf") if is_lower_better else -float("inf")
             for algo in ALGO_NAMES:
                 agg = results[case_name][algo]
-                cell = value_fn(agg)
+                if agg["success"] and agg[f"{value_key}_mean"] != float("inf"):
+                    val = agg[f"{value_key}_mean"]
+                    if (is_lower_better and val < best_val) or (not is_lower_better and val > best_val):
+                        best_val = val
+            
+            for algo in ALGO_NAMES:
+                agg = results[case_name][algo]
+                if not agg["success"] or agg[f"{value_key}_mean"] == float("inf"):
+                    cell = "FAIL"
+                else:
+                    mean_val = agg[f"{value_key}_mean"]
+                    std_val = agg[f"{value_key}_std"]
+                    # Use decimals based on key
+                    decimals = 4 if value_key == "fitness" else (2 if value_key in ("distance", "rating") else (3 if value_key == "co2" else 1))
+                    cell = fmt_mean_std(mean_val, std_val, decimals)
+                    
+                    # Mark best with a star
+                    if mean_val == best_val:
+                        cell = f"★ {cell}"
+                        
                 row += f" | {cell:^{col_w}}"
             print(row)
 
-    print_table(
-        "COMPUTATION TIME", "seconds",
-        lambda a: fmt_mean_std(a["time_mean"], a["time_std"]) if a["success"] else "FAIL",
-    )
-
-    print_table(
-        "FITNESS", "lower is better",
-        lambda a: fmt_mean_std(a["fitness_mean"], a["fitness_std"], 4)
-                  if a["success"] and a["fitness_mean"] < float("inf") else "FAIL",
-    )
-
-    print_table(
-        "DISTANCE", "km",
-        lambda a: fmt_mean_std(a["distance_mean"], a["distance_std"], 2) if a["success"] else "FAIL",
-    )
-
-    print_table(
-        "TRAVEL TIME", "minutes",
-        lambda a: fmt_mean_std(a["time_min_mean"], a["time_min_std"], 1) if a["success"] else "FAIL",
-    )
-
-    print_table(
-        "CO2 EMISSIONS", "kg",
-        lambda a: fmt_mean_std(a["co2_mean"], a["co2_std"], 3) if a["success"] else "FAIL",
-    )
-
-    print_table(
-        "AVG PLACE RATING", "higher is better",
-        lambda a: fmt_mean_std(a["rating_mean"], a["rating_std"], 2) if a["success"] else "FAIL",
-    )
+    print_table("COMPUTATION TIME", "seconds", "time", True)
+    print_table("FITNESS", "lower is better", "fitness", True)
+    print_table("DISTANCE", "km", "distance", True)
+    print_table("TRAVEL TIME", "minutes", "time_min", True)
+    print_table("CO2 EMISSIONS", "kg", "co2", True)
+    print_table("AVG PLACE RATING", "higher is better", "rating", False)
 
     # ============================================================
     # Save CSV — summary (mean ± std)
     # ============================================================
     out_dir = PROJECT_ROOT
 
-    csv_path = os.path.join(out_dir, "benchmark_results.csv")
+    csv_path = os.path.join(out_dir, f"benchmark_resultsx{N_ROUNDS}.csv")
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=[
             "case", "description", "trip_days", "lifestyle", "n_places",

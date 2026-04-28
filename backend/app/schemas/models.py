@@ -9,15 +9,18 @@ class PlaceType(str, Enum):
     TRAVEL = "Travel"
     CULTURE = "Culture"
     OTOP = "OTOP"
+    FOOD = "Food"
 
 
 class AlgorithmType(str, Enum):
     SM = "sm"
     SA = "sa"
     GA = "ga"
+    ALNS = "alns"
     SM_ALNS = "sm_alns"
     SA_ALNS = "sa_alns"
     GA_ALNS = "ga_alns"
+    MOMA = "moma"
     LINGO = "lingo"
 
 
@@ -45,9 +48,10 @@ class OptimizeRequest(BaseModel):
     algorithm: AlgorithmType = AlgorithmType.GA
     lifestyle_type: LifestyleType = LifestyleType.ALL
     weight_distance: float = Field(default=0.4, ge=0, le=1)
-    weight_time: float = Field(default=0.3, ge=0, le=1)
     weight_co2: float = Field(default=0.3, ge=0, le=1)
-    max_places_per_day: int = Field(default=6, ge=1, le=10)
+    weight_rating: float = Field(default=0.3, ge=0, le=1)
+    min_places_per_day: int = Field(default=3, ge=1, le=10)
+    max_places_per_day: int = Field(default=7, ge=1, le=10)
     start_place_type: str = "airport"
     end_place_type: str = "airport"
 

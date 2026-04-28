@@ -10,6 +10,7 @@ An intelligent travel itinerary optimization system that plans multi-day routes 
 | [Architecture](architecture.md) | System design, request flow, backend layers, storage layout |
 | [API Reference](api-reference.md) | All 18 REST endpoints with request/response examples |
 | [Algorithms](algorithms.md) | Deep dive into GA, SA, ALNS, and hybrid optimizers |
+| [Algorithm Workflows](algorithm-workflows.md) | Detailed workflows, flowcharts (Mermaid), and pseudocode ([HTML View](algorithm-workflows.html)) |
 | [Data Formats](data-formats.md) | CSV input schemas, JSON result structure, matrix formats |
 | [Frontend Guide](frontend-guide.md) | UI structure, Leaflet map integration, extending the frontend |
 

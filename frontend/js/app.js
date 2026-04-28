@@ -4,11 +4,11 @@ let currentResult = null;
 
 const TYPE_COLORS = {
     Depot: '#6366F1', Hotel: '#F59E0B', Travel: '#10B981',
-    Culture: '#8B5CF6', OTOP: '#EF4444'
+    Culture: '#8B5CF6', OTOP: '#EF4444', Food: '#EC4899'
 };
 const TYPE_ICONS = {
     Depot: 'fa-plane', Hotel: 'fa-bed', Travel: 'fa-camera',
-    Culture: 'fa-landmark', OTOP: 'fa-shopping-bag'
+    Culture: 'fa-landmark', OTOP: 'fa-shopping-bag', Food: 'fa-utensils'
 };
 const DAY_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B'];
 
@@ -265,10 +265,11 @@ async function runOptimize() {
         trip_days: parseInt(document.getElementById('tripDays').value),
         algorithm: document.getElementById('algorithm').value,
         lifestyle_type: document.getElementById('lifestyle').value,
+        min_places_per_day: parseInt(document.getElementById('minPlaces').value),
         max_places_per_day: parseInt(document.getElementById('maxPlaces').value),
         weight_distance: parseFloat(document.getElementById('wDist').value),
-        weight_time: parseFloat(document.getElementById('wTime').value),
         weight_co2: parseFloat(document.getElementById('wCo2').value),
+        weight_rating: parseFloat(document.getElementById('wRating').value),
     };
 
     try {
@@ -626,7 +627,7 @@ async function runCompare() {
     el.innerHTML = '<div class="flex items-center gap-2"><span class="spinner"></span> กำลังเปรียบเทียบ...</div>';
 
     try {
-        const res = await fetch(`${API}/api/v1/routes/compare?algorithms=${algos.join(',')}&trip_days=${document.getElementById('tripDays').value}&lifestyle_type=${document.getElementById('lifestyle').value}&weight_distance=${document.getElementById('wDist').value}&weight_time=${document.getElementById('wTime').value}&weight_co2=${document.getElementById('wCo2').value}&max_places_per_day=${document.getElementById('maxPlaces').value}`);
+        const res = await fetch(`${API}/api/v1/routes/compare?algorithms=${algos.join(',')}&trip_days=${document.getElementById('tripDays').value}&lifestyle_type=${document.getElementById('lifestyle').value}&weight_distance=${document.getElementById('wDist').value}&weight_co2=${document.getElementById('wCo2').value}&weight_rating=${document.getElementById('wRating').value}&min_places_per_day=${document.getElementById('minPlaces').value}&max_places_per_day=${document.getElementById('maxPlaces').value}`);
         const data = await res.json();
         if (!data.items) throw new Error('No results');
 

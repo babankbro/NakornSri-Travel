@@ -88,8 +88,8 @@ On startup, the server:
    - Trip days: 2
    - Algorithm: GA (Genetic Algorithm)
    - Lifestyle: All
-   - Max places per day: 6
-   - Weights: Distance 0.4, Time 0.3, CO2 0.3
+   - Places per day (Min-Max): 3-7
+   - Weights: Distance 0.4, CO2 0.3, Rating 0.3
 4. Click **"คำนวณเส้นทาง"** (Calculate Route)
 5. View the optimized route on the map and in the day-by-day itinerary
 
@@ -103,9 +103,10 @@ curl -X POST http://localhost:8000/api/v1/routes/optimize \
     "algorithm": "ga",
     "lifestyle_type": "all",
     "weight_distance": 0.4,
-    "weight_time": 0.3,
     "weight_co2": 0.3,
-    "max_places_per_day": 6
+    "weight_rating": 0.3,
+    "min_places_per_day": 3,
+    "max_places_per_day": 7
   }'
 ```
 

@@ -61,8 +61,9 @@ async def compare_algorithms(
     trip_days: int = 2,
     lifestyle_type: str = "all",
     weight_distance: float = 0.4,
-    weight_time: float = 0.3,
     weight_co2: float = 0.3,
+    weight_rating: float = 0.3,
+    min_places_per_day: int = 4,
     max_places_per_day: int = 6,
 ):
     optimizer_service, result_manager, data_loader = get_services()
@@ -76,8 +77,9 @@ async def compare_algorithms(
         algorithm=AlgorithmType(algo_list[0]),
         lifestyle_type=lifestyle_type,
         weight_distance=weight_distance,
-        weight_time=weight_time,
         weight_co2=weight_co2,
+        weight_rating=weight_rating,
+        min_places_per_day=min_places_per_day,
         max_places_per_day=max_places_per_day,
     )
 

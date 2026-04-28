@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from backend.app.optimizers.base import BaseOptimizer, Route, RouteEvaluator
 from backend.app.services.data_loader import DataLoader
-from backend.app.schemas.models import OptimizeRequest
+from backend.app.schemas.models import OptimizeRequest, PlaceType
 
 
 class GAOptimizer(BaseOptimizer):
@@ -63,6 +63,17 @@ class GAOptimizer(BaseOptimizer):
                 child[i] = fill_values[fill_idx]
                 fill_idx += 1
 
+        # If parent2 didn't have enough values, fill with random available places
+        if None in child:
+            candidates = self._get_candidate_places()
+            pool = [p.id for p in candidates if p.id not in child]
+            self.rng.shuffle(pool)
+            pool_idx = 0
+            for i in range(size):
+                if child[i] is None and pool_idx < len(pool):
+                    child[i] = pool[pool_idx]
+                    pool_idx += 1
+
         child = [x for x in child if x is not None]
         return child
 
@@ -94,6 +105,40 @@ class GAOptimizer(BaseOptimizer):
                         new_day.append(rep)
                         seen.add(rep)
             child_day_places[d] = new_day
+
+        # Repair OTOP and FOOD constraints (exactly 1 per day)
+        for d in range(num_days):
+            day_places = child_day_places[d]
+            for req_type in (PlaceType.OTOP, PlaceType.FOOD):
+                type_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) == req_type]
+                
+                while len(type_pids) > 1:
+                    pid_to_remove = type_pids.pop()
+                    candidates = self._get_candidate_places()
+                    replacements = [p.id for p in candidates if p.id not in seen and p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
+                    if replacements:
+                        rep = replacements[self.rng.integers(0, len(replacements))]
+                        idx = day_places.index(pid_to_remove)
+                        day_places[idx] = rep
+                        seen.remove(pid_to_remove)
+                        seen.add(rep)
+                    else:
+                        day_places.remove(pid_to_remove)
+                        seen.remove(pid_to_remove)
+
+                if len(type_pids) == 0:
+                    candidates = self._get_candidate_places()
+                    replacements = [p.id for p in candidates if p.id not in seen and p.type == req_type]
+                    if replacements:
+                        rep = replacements[self.rng.integers(0, len(replacements))]
+                        gen_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) not in (PlaceType.OTOP, PlaceType.FOOD)]
+                        if gen_pids:
+                            idx = day_places.index(gen_pids[0])
+                            day_places[idx] = rep
+                            seen.remove(gen_pids[0])
+                        else:
+                            day_places.append(rep)
+                        seen.add(rep)
 
         # Hotel selection: randomly pick from either parent
         child_hotel_ids = []
@@ -136,11 +181,28 @@ class GAOptimizer(BaseOptimizer):
                 d1, d2 = self.rng.choice(num_days, size=2, replace=False)
                 if route.day_places[d1] and route.day_places[d2]:
                     i1 = int(self.rng.integers(0, len(route.day_places[d1])))
-                    i2 = int(self.rng.integers(0, len(route.day_places[d2])))
-                    route.day_places[d1][i1], route.day_places[d2][i2] = (
-                        route.day_places[d2][i2],
-                        route.day_places[d1][i1],
-                    )
+                    pid1 = route.day_places[d1][i1]
+                    p1_type = next(p.type for p in self.data.places if p.id == pid1)
+                    
+                    # Find a place in d2 with a compatible type to swap
+                    # If it's FOOD or OTOP, must swap with FOOD or OTOP respectively to keep counts 1 per day.
+                    # If Travel/Culture, swap with any non-Food/non-OTOP
+                    valid_i2s = []
+                    for i2, pid2 in enumerate(route.day_places[d2]):
+                        p2_type = next(p.type for p in self.data.places if p.id == pid2)
+                        if p1_type in (PlaceType.FOOD, PlaceType.OTOP):
+                            if p2_type == p1_type:
+                                valid_i2s.append(i2)
+                        else:
+                            if p2_type not in (PlaceType.FOOD, PlaceType.OTOP):
+                                valid_i2s.append(i2)
+                    
+                    if valid_i2s:
+                        i2 = int(self.rng.choice(valid_i2s))
+                        route.day_places[d1][i1], route.day_places[d2][i2] = (
+                            route.day_places[d2][i2],
+                            route.day_places[d1][i1],
+                        )
 
         elif mutation_type == 3:
             # Change a random hotel

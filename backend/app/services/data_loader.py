@@ -25,13 +25,14 @@ class DataLoader:
 
     def load_places(self, filepath: Optional[str] = None) -> List[Place]:
         if filepath is None:
-            filepath = os.path.join(DATA_DIR, "TravelInfo.csv")
+            filepath = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
             if not os.path.exists(filepath):
-                filepath = os.path.join(INPUTS_DIR, "TravelInfo.csv")
+                filepath = os.path.join(INPUTS_DIR, "TravelInfo_v2.csv")
 
         df = pd.read_csv(filepath)
         df.columns = df.columns.str.strip()
         df["CO2"] = pd.to_numeric(df["CO2"], errors="coerce").fillna(0.0)
+        df["CO2"] = (df["CO2"] * 1000) / 365.0  # Convert tons/year to kg/day
         df["RATE"] = pd.to_numeric(df["RATE"], errors="coerce").fillna(0.0)
         df["VisitTime"] = pd.to_numeric(df["VisitTime"], errors="coerce").fillna(0).astype(int)
 
@@ -97,74 +98,128 @@ class DataLoader:
         n = len(self.places)
         dist_mat = np.zeros((n, n))
         time_mat = np.zeros((n, n))
+        
+        # Incremental Load: Check existing cache
+        dist_path = os.path.join(INPUTS_DIR, "google_distance_matrix.csv")
+        time_path = os.path.join(INPUTS_DIR, "google_travel_time_matrix.csv")
+        cached_dist = None
+        cached_time = None
+        if os.path.exists(dist_path) and os.path.exists(time_path):
+            try:
+                cached_dist = pd.read_csv(dist_path, index_col=0)
+                cached_time = pd.read_csv(time_path, index_col=0)
+                print(f"[DataLoader] Found existing Google cache with size {cached_dist.shape[0]}x{cached_dist.shape[1]}")
+            except Exception as e:
+                print(f"[DataLoader] Failed to load existing cache: {e}")
+                cached_dist = None
+                cached_time = None
 
-        coords = [f"{p.lat},{p.lng}" for p in self.places]
         batch_size = 10
         total_calls = 0
         errors = []
-        total_batches = ((n + batch_size - 1) // batch_size) ** 2
-        current_batch = 0
+        
+        # Determine which cells need to be fetched
+        needs_fetch = np.zeros((n, n), dtype=bool)
+        for i, p1 in enumerate(self.places):
+            for j, p2 in enumerate(self.places):
+                # If cache exists and both IDs are in cache, use cached values
+                if cached_dist is not None and p1.id in cached_dist.index and p2.id in cached_dist.columns:
+                    dist_mat[i][j] = cached_dist.loc[p1.id, p2.id]
+                    time_mat[i][j] = cached_time.loc[p1.id, p2.id]
+                else:
+                    needs_fetch[i][j] = True
+
+        total_cells_to_fetch = int(np.sum(needs_fetch))
+        if total_cells_to_fetch == 0:
+            print("[DataLoader] All distances are already cached. No Google API calls needed.")
+            self.distance_matrix = dist_mat
+            self.travel_time_matrix = time_mat
+            self.using_google_api = True
+            self._save_google_matrices()
+            return {
+                "success": True,
+                "api_calls": 0,
+                "matrix_size": n,
+                "errors": [],
+                "using_google": True,
+            }
 
         print(f"\n{'='*70}")
-        print(f"[Google API] เริ่มดึงข้อมูล Distance Matrix สำหรับ {n} สถานที่")
-        print(f"[Google API] จำนวน API calls ทั้งหมด: {total_batches} batches")
+        print(f"[Google API] เริ่มดึงข้อมูล Distance Matrix สำหรับสถานที่ใหม่")
+        print(f"[Google API] จำนวนเซลล์ที่ต้องดึง: {total_cells_to_fetch} จาก {n*n} เซลล์")
         print(f"{'='*70}\n")
 
+        # Create batches for missing data
+        coords = [f"{p.lat},{p.lng}" for p in self.places]
+        batches_to_run = []
+        
         for i_start in range(0, n, batch_size):
             i_end = min(i_start + batch_size, n)
-            origins = "|".join(coords[i_start:i_end])
-
             for j_start in range(0, n, batch_size):
                 j_end = min(j_start + batch_size, n)
-                destinations = "|".join(coords[j_start:j_end])
-                current_batch += 1
-
-                # แสดงข้อมูล batch ปัจจุบัน (lat,lng)
-                origin_coords = [f"{p.id}({p.lat:.4f},{p.lng:.4f})" for p in self.places[i_start:i_end]]
-                dest_coords = [f"{p.id}({p.lat:.4f},{p.lng:.4f})" for p in self.places[j_start:j_end]]
                 
-                print(f"[Batch {current_batch}/{total_batches}] Origins: {', '.join(origin_coords)}")
-                print(f"                  Destinations: {', '.join(dest_coords)}")
+                # Check if this batch has any cell needing fetch
+                batch_needs_fetch = needs_fetch[i_start:i_end, j_start:j_end].any()
+                if batch_needs_fetch:
+                    batches_to_run.append((i_start, i_end, j_start, j_end))
 
-                # สร้าง URL โดยใช้ lat,lng โดยตรง (ไม่ต้อง encode)
-                url = (
-                    f"https://maps.googleapis.com/maps/api/distancematrix/json"
-                    f"?origins={origins}"
-                    f"&destinations={destinations}"
-                    f"&mode=driving&units=metric&key={api_key}"
-                )
+        total_batches = len(batches_to_run)
+        print(f"[Google API] จำนวน API calls ที่คาดว่าจะใช้: {total_batches} batches")
+
+        current_batch = 0
+        for i_start, i_end, j_start, j_end in batches_to_run:
+            origins = "|".join(coords[i_start:i_end])
+            destinations = "|".join(coords[j_start:j_end])
+            current_batch += 1
+
+            # แสดงข้อมูล batch ปัจจุบัน
+            origin_coords = [f"{p.id}({p.lat:.4f},{p.lng:.4f})" for p in self.places[i_start:i_end]]
+            dest_coords = [f"{p.id}({p.lat:.4f},{p.lng:.4f})" for p in self.places[j_start:j_end]]
+            
+            print(f"[Batch {current_batch}/{total_batches}] Origins: {', '.join(origin_coords)}")
+            print(f"                  Destinations: {', '.join(dest_coords)}")
+
+            url = (
+                f"https://maps.googleapis.com/maps/api/distancematrix/json"
+                f"?origins={origins}"
+                f"&destinations={destinations}"
+                f"&mode=driving&units=metric&key={api_key}"
+            )
+            try:
+                req = urllib.request.urlopen(url, timeout=10)
+                response_text = req.read().decode('utf-8')
+                
                 try:
-                    req = urllib.request.urlopen(url, timeout=10)
-                    response_text = req.read().decode('utf-8')
-                    
-                    # ตรวจสอบว่าเป็น JSON หรือไม่
-                    try:
-                        data = json.loads(response_text)
-                    except json.JSONDecodeError as je:
-                        error_msg = f"Invalid JSON response (ตรวจสอบ API Key หรือ quota): {response_text[:100]}"
-                        errors.append(error_msg)
-                        print(f"  ❌ {error_msg}")
-                        continue
-                    
-                    total_calls += 1
+                    data = json.loads(response_text)
+                except json.JSONDecodeError as je:
+                    error_msg = f"Invalid JSON response: {response_text[:100]}"
+                    errors.append(error_msg)
+                    print(f"  ❌ {error_msg}")
+                    continue
+                
+                total_calls += 1
 
-                    if data.get("status") != "OK":
-                        error_msg = f"API error: {data.get('status')} - {data.get('error_message', 'No details')}"
-                        errors.append(error_msg)
-                        print(f"  ❌ {error_msg}")
-                        continue
+                if data.get("status") != "OK":
+                    error_msg = f"API error: {data.get('status')} - {data.get('error_message', 'No details')}"
+                    errors.append(error_msg)
+                    print(f"  ❌ {error_msg}")
+                    continue
 
-                    success_count = 0
-                    fallback_count = 0
+                success_count = 0
+                fallback_count = 0
 
-                    for ri, row in enumerate(data["rows"]):
-                        gi = i_start + ri
-                        for ci, elem in enumerate(row["elements"]):
-                            gj = j_start + ci
+                for ri, row in enumerate(data["rows"]):
+                    gi = i_start + ri
+                    for ci, elem in enumerate(row["elements"]):
+                        gj = j_start + ci
+                        
+                        # Only update if it needed fetch (to avoid overwriting valid cached data if batch overlaps)
+                        if needs_fetch[gi][gj]:
                             if elem.get("status") == "OK":
                                 dist_mat[gi][gj] = elem["distance"]["value"] / 1000.0
                                 time_mat[gi][gj] = elem["duration"]["value"] / 60.0
                                 success_count += 1
+                                needs_fetch[gi][gj] = False
                             else:
                                 from backend.app.utils.distance import haversine
                                 dist_mat[gi][gj] = haversine(
@@ -173,19 +228,34 @@ class DataLoader:
                                 )
                                 time_mat[gi][gj] = dist_mat[gi][gj] / 60.0 * 60.0
                                 fallback_count += 1
-                    
-                    print(f"  ✅ สำเร็จ: {success_count} คู่", end="")
-                    if fallback_count > 0:
-                        print(f" | ⚠️  Fallback (Haversine): {fallback_count} คู่")
-                    else:
-                        print()
-                    
-                except Exception as e:
-                    error_msg = str(e)
-                    errors.append(error_msg)
-                    print(f"  ❌ Exception: {error_msg}")
+                                needs_fetch[gi][gj] = False
                 
-                print()  # บรรทัดว่าง
+                print(f"  ✅ สำเร็จ: {success_count} คู่", end="")
+                if fallback_count > 0:
+                    print(f" | ⚠️  Fallback (Haversine): {fallback_count} คู่")
+                else:
+                    print()
+                
+            except Exception as e:
+                error_msg = str(e)
+                errors.append(error_msg)
+                print(f"  ❌ Exception: {error_msg}")
+            
+            print()  # บรรทัดว่าง
+
+        # Fallback for any cells that failed completely (e.g. batch failed)
+        remaining_missing = int(np.sum(needs_fetch))
+        if remaining_missing > 0:
+            print(f"[DataLoader] ⚠️ Applying Haversine fallback to {remaining_missing} missing cells")
+            from backend.app.utils.distance import haversine
+            for i in range(n):
+                for j in range(n):
+                    if needs_fetch[i][j]:
+                        dist_mat[i][j] = haversine(
+                            self.places[i].lat, self.places[i].lng,
+                            self.places[j].lat, self.places[j].lng
+                        )
+                        time_mat[i][j] = dist_mat[i][j] / 60.0 * 60.0
 
         # บันทึก matrices แม้มี errors บางส่วน (partial success)
         self.distance_matrix = dist_mat
@@ -303,10 +373,7 @@ class DataLoader:
         return self.get_places_by_type(PlaceType.HOTEL)
 
     def get_tourist_places(self) -> List[Place]:
-        return [
-            p for p in self.places
-            if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP)
-        ]
+        return [p for p in self.places if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP, PlaceType.FOOD)]
 
     def get_otop_places(self) -> List[Place]:
         return self.get_places_by_type(PlaceType.OTOP)

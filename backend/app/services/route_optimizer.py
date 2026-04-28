@@ -14,10 +14,10 @@ from backend.app.optimizers.sm import SMOptimizer
 from backend.app.optimizers.sa_alns import SAAlnsOptimizer
 from backend.app.optimizers.ga_alns import GAAlnsOptimizer
 from backend.app.optimizers.sm_alns import SMAlnsOptimizer
-
+from backend.app.optimizers.pure_alns import PureALNSOptimizer
+from backend.app.optimizers.moma import MOMAOptimizer
 
 DAY_COLORS = ["#3B82F6", "#EF4444", "#10B981", "#F59E0B"]
-
 
 def minutes_to_time_str(minutes: float) -> str:
     h = int(minutes) // 60
@@ -38,15 +38,19 @@ class RouteOptimizerService:
             optimizer = GAOptimizer(self.data, request)
         elif algo == AlgorithmType.SA:
             optimizer = SAOptimizer(self.data, request)
+        elif algo == AlgorithmType.ALNS:
+            optimizer = PureALNSOptimizer(self.data, request)
         elif algo == AlgorithmType.SM_ALNS:
             optimizer = SMAlnsOptimizer(self.data, request)
         elif algo == AlgorithmType.SA_ALNS:
             optimizer = SAAlnsOptimizer(self.data, request)
         elif algo == AlgorithmType.GA_ALNS:
             optimizer = GAAlnsOptimizer(self.data, request)
+        elif algo == AlgorithmType.MOMA:
+            optimizer = MOMAOptimizer(self.data, request)
         else:
             raise ValueError(f"Algorithm '{algo}' is not supported")
-
+        
         best_route = optimizer.optimize()
         evaluator = optimizer.evaluator
         evaluation = evaluator.evaluate_route(best_route)

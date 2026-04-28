@@ -142,14 +142,19 @@ class RouteEvaluator:
     def fitness(self, route: Route) -> float:
         ev = self.evaluate_route(route)
         w_d = self.request.weight_distance
-        w_t = self.request.weight_time
         w_c = self.request.weight_co2
+        w_r = getattr(self.request, 'weight_rating', 0.0)
 
         dist_norm = ev["total_distance_km"] / 200.0
-        time_norm = ev["total_time_min"] / 600.0
-        co2_norm = ev["total_co2_kg"] / 30.0
+        co2_norm = ev["total_co2_kg"] / 150.0
 
-        cost = w_d * dist_norm + w_t * time_norm + w_c * co2_norm
+        place_map = {p.id: p for p in self.data.places}
+        all_place_ids = [pid for day in route.day_places for pid in day]
+        ratings = [place_map[pid].rate for pid in all_place_ids if pid in place_map]
+        avg_rating = float(np.mean(ratings)) if ratings else 0.0
+        rating_norm = (5.0 - avg_rating) / 5.0
+
+        cost = w_d * dist_norm + w_c * co2_norm + w_r * rating_norm
 
         penalty = 0.0
         if not ev["feasible"]:
@@ -157,14 +162,36 @@ class RouteEvaluator:
 
         place_map = {p.id: p for p in self.data.places}
         for day_places in route.day_places:
+            num_places = len(day_places)
+            if num_places < self.request.min_places_per_day:
+                penalty += 50.0 * (self.request.min_places_per_day - num_places)
+            elif num_places > self.request.max_places_per_day:
+                penalty += 50.0 * (num_places - self.request.max_places_per_day)
+
             otop_count = sum(
                 1 for pid in day_places
                 if pid in place_map and place_map[pid].type == PlaceType.OTOP
             )
             if otop_count == 0:
-                penalty += 5.0
+                penalty += 50.0
             elif otop_count > 1:
-                penalty += 3.0 * (otop_count - 1)
+                penalty += 30.0 * (otop_count - 1)
+
+            food_count = sum(
+                1 for pid in day_places
+                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+            )
+            if food_count == 0:
+                penalty += 50.0
+
+        for day_eval in ev["days"]:
+            for sched in day_eval["schedule"]:
+                if sched["type"] == PlaceType.FOOD.value:
+                    arrival = sched["arrival_min"]
+                    if arrival < 660:
+                        penalty += ((660 - arrival) / 10.0) * 2.0
+                    elif arrival > 780:
+                        penalty += ((arrival - 780) / 10.0) * 2.0
 
         return cost + penalty
 
@@ -189,6 +216,20 @@ class RouteEvaluator:
                 violations.append(f"Day {day_idx}: missing OTOP visit (need exactly 1)")
             elif otop_count > 1:
                 violations.append(f"Day {day_idx}: {otop_count} OTOP visits (need exactly 1)")
+
+            food_count = sum(
+                1 for pid in day_places
+                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+            )
+            if food_count == 0:
+                violations.append(f"Day {day_idx}: missing Food visit (need at least 1)")
+
+        for day_idx, day_eval in enumerate(ev["days"], 1):
+            for sched in day_eval["schedule"]:
+                if sched["type"] == PlaceType.FOOD.value:
+                    arrival = sched["arrival_min"]
+                    if arrival < 660 or arrival > 780:
+                        violations.append(f"Day {day_idx}: Food arrival outside 11:00-13:00 window")
 
         return violations
 
@@ -218,14 +259,16 @@ class BaseOptimizer(ABC):
         all_candidates = self._get_candidate_places()
         hotels = self.data.get_hotels()
         otops = self.data.get_otop_places()
+        foods = [p for p in all_candidates if p.type == PlaceType.FOOD]
         num_days = self.request.trip_days
 
+        min_per_day = self.request.min_places_per_day
         max_per_day = self.request.max_places_per_day
 
-        non_otop = [p for p in all_candidates if p.type != PlaceType.OTOP]
+        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
 
-        def pick_non_otop(n: int, exclude: set) -> List[Place]:
-            pool = [p for p in non_otop if p.id not in exclude]
+        def pick_non_otop_food(n: int, exclude: set) -> List[Place]:
+            pool = [p for p in non_otop_food if p.id not in exclude]
             if not pool:
                 return []
             rates = np.array([p.rate for p in pool])
@@ -237,10 +280,13 @@ class BaseOptimizer(ABC):
         otop_pool = list(otops)
         rng.shuffle(otop_pool)
 
+        food_pool = list(foods)
+        rng.shuffle(food_pool)
+
         used_ids: set = set()
         day_places: List[List[str]] = [[] for _ in range(num_days)]
 
-        # Assign 1 OTOP per day
+        # Assign 1 OTOP and 1 FOOD per day
         for d in range(num_days):
             if d < len(otop_pool):
                 otop = otop_pool[d]
@@ -252,12 +298,25 @@ class BaseOptimizer(ABC):
                 day_places[d].append(otop.id)
                 used_ids.add(otop.id)
 
+            if d < len(food_pool):
+                food = food_pool[d]
+            elif food_pool:
+                food = food_pool[d % len(food_pool)]
+            else:
+                food = None
+            if food and food.id not in used_ids:
+                day_places[d].append(food.id)
+                used_ids.add(food.id)
+
         # Fill remaining slots per day
         for d in range(num_days):
-            fill = pick_non_otop(max_per_day - len(day_places[d]), used_ids)
-            for p in fill:
-                day_places[d].append(p.id)
-                used_ids.add(p.id)
+            target_length = rng.integers(min_per_day, max_per_day + 1)
+            fill_count = target_length - len(day_places[d])
+            if fill_count > 0:
+                fill = pick_non_otop_food(fill_count, used_ids)
+                for p in fill:
+                    day_places[d].append(p.id)
+                    used_ids.add(p.id)
             rng.shuffle(day_places[d])
 
         # Select hotels (num_days - 1 hotels needed)
@@ -271,4 +330,5 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def optimize(self) -> Route:
+        pass
         pass

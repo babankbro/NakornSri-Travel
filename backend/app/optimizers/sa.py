@@ -5,7 +5,7 @@ from typing import Optional
 
 from backend.app.optimizers.base import BaseOptimizer, Route
 from backend.app.services.data_loader import DataLoader
-from backend.app.schemas.models import OptimizeRequest
+from backend.app.schemas.models import OptimizeRequest, PlaceType
 
 
 class SAOptimizer(BaseOptimizer):
@@ -55,22 +55,44 @@ class SAOptimizer(BaseOptimizer):
                 d1, d2 = self.rng.choice(num_days, size=2, replace=False)
                 if new_route.day_places[d1] and new_route.day_places[d2]:
                     i1 = int(self.rng.integers(0, len(new_route.day_places[d1])))
-                    i2 = int(self.rng.integers(0, len(new_route.day_places[d2])))
-                    new_route.day_places[d1][i1], new_route.day_places[d2][i2] = (
-                        new_route.day_places[d2][i2],
-                        new_route.day_places[d1][i1],
-                    )
+                    pid1 = new_route.day_places[d1][i1]
+                    p1_type = next(p.type for p in self.data.places if p.id == pid1)
+                    
+                    valid_i2s = []
+                    for i2, pid2 in enumerate(new_route.day_places[d2]):
+                        p2_type = next(p.type for p in self.data.places if p.id == pid2)
+                        if p1_type in (PlaceType.FOOD, PlaceType.OTOP):
+                            if p2_type == p1_type:
+                                valid_i2s.append(i2)
+                        else:
+                            if p2_type not in (PlaceType.FOOD, PlaceType.OTOP):
+                                valid_i2s.append(i2)
+                    
+                    if valid_i2s:
+                        i2 = int(self.rng.choice(valid_i2s))
+                        new_route.day_places[d1][i1], new_route.day_places[d2][i2] = (
+                            new_route.day_places[d2][i2],
+                            new_route.day_places[d1][i1],
+                        )
 
         elif move_type == 3:
             # Replace a place with an unused candidate
             day = int(self.rng.integers(0, num_days))
             places = new_route.day_places[day]
             all_used = set(pid for d in new_route.day_places for pid in d)
-            candidates = [p for p in self._get_candidate_places() if p.id not in all_used]
-            if places and candidates:
+            if places:
                 idx = int(self.rng.integers(0, len(places)))
-                new_place = candidates[self.rng.integers(0, len(candidates))]
-                places[idx] = new_place.id
+                pid = places[idx]
+                p_type = next(p.type for p in self.data.places if p.id == pid)
+                
+                if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type == p_type]
+                else:
+                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type not in (PlaceType.FOOD, PlaceType.OTOP)]
+                
+                if candidates:
+                    new_place = candidates[self.rng.integers(0, len(candidates))]
+                    places[idx] = new_place.id
 
         elif move_type == 4:
             # Change a random hotel

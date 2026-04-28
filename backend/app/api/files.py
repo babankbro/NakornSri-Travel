@@ -22,7 +22,7 @@ async def import_places(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted")
 
     os.makedirs(INPUTS_DIR, exist_ok=True)
-    filepath = os.path.join(INPUTS_DIR, "TravelInfo.csv")
+    filepath = os.path.join(INPUTS_DIR, "TravelInfo_v2.csv")
     content = await file.read()
     with open(filepath, "wb") as f:
         f.write(content)
@@ -134,10 +134,10 @@ async def clear_google_cache():
 @router.post("/validate")
 async def validate_files():
     loader = get_data_loader()
-    if not loader.places:
-        csv_path = os.path.join(DATA_DIR, "TravelInfo.csv")
+    if not data_loader.places:
+        csv_path = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
         if not os.path.exists(csv_path):
-            csv_path = os.path.join(INPUTS_DIR, "TravelInfo.csv")
+            csv_path = os.path.join(INPUTS_DIR, "TravelInfo_v2.csv")
         if os.path.exists(csv_path):
             loader.load_places(csv_path)
 

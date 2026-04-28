@@ -100,9 +100,10 @@ Each optimization run produces a JSON file saved to `storage/results/`.
     "algorithm": "ga",
     "lifestyle_type": "all",
     "weight_distance": 0.4,
-    "weight_time": 0.3,
     "weight_co2": 0.3,
-    "max_places_per_day": 6,
+    "weight_rating": 0.3,
+    "min_places_per_day": 3,
+    "max_places_per_day": 7,
     "start_place_type": "airport",
     "end_place_type": "airport"
   },

@@ -17,15 +17,16 @@ This system solves a variant of the **multi-objective Traveling Salesman Problem
 |-----------|-------|-------------|
 | `DAY_START_MINUTES` | 480 (08:00) | Daily start time |
 | `DAY_END_MINUTES` | 1020 (17:00) | Daily end time |
-| `LUNCH_AFTER_N_PLACES` | 3 | Lunch break after every 3rd place |
-| `LUNCH_DURATION_MINUTES` | 60 | Lunch break duration |
+| `LUNCH_WINDOW` | 11:00 - 13:00 | Target arrival window for the Food place |
 
 ### Constraints
 
 1. **Time window**: Each day must finish by 17:00 (1020 minutes)
 2. **OTOP**: Each day must visit **exactly 1** OTOP (community product) place
-3. **No duplicates**: A place visited on Day 1 cannot be visited on Day 2
-4. **Hotel**: Exactly 1 hotel selected for overnight stay between days
+3. **Food**: Each day must visit **at least 1** Food place, ideally arriving between 11:00 and 13:00.
+4. **No duplicates**: A place visited on Day 1 cannot be visited on Day 2
+5. **Hotel**: Exactly 1 hotel selected for overnight stay between days
+6. **Place Count**: Each day must contain between `min_places_per_day` and `max_places_per_day`.
 
 ## Route Representation
 
@@ -43,28 +44,32 @@ Day 2 sequence: `Hotel → day2_places[0] → ... → day2_places[n] → Depot`
 
 ## Fitness Function
 
-The fitness function combines three normalized objectives plus constraint penalties:
+The fitness function combines three normalized objectives plus constraint penalties. Note that travel time is handled as a strict constraint (must finish by 17:00), rather than a weighted scalar objective, to ensure feasibility without over-penalizing longer culturally enriching trips.
 
 ```
 fitness = w_distance * (total_distance / 200)
-        + w_time    * (total_time / 600)
-        + w_co2     * (total_co2 / 30)
+        + w_co2      * (total_co2 / 150)
+        + w_rating   * ((5.0 - avg_rating) / 5.0)
         + penalties
 ```
 
-**Normalization constants**: distance/200 km, time/600 min, co2/30 kg
+**Normalization constants**: distance/200 km, co2/150 kg, rating (inverted for minimization)
 
-**Default weights**: `w_distance=0.4`, `w_time=0.3`, `w_co2=0.3`
+**Default weights**: `w_distance=0.4`, `w_co2=0.3`, `w_rating=0.3`
 
 ### Penalties
 
 | Condition | Penalty |
 |-----------|---------|
 | Route exceeds time window (infeasible) | +10.0 |
-| Day missing OTOP visit (0 OTOP places) | +5.0 per day |
-| Day has extra OTOP visits (>1) | +3.0 per extra OTOP |
+| Day has fewer than `min_places_per_day` | +50.0 per missing place |
+| Day has more than `max_places_per_day` | +50.0 per extra place |
+| Day missing OTOP visit (0 OTOP places) | +50.0 |
+| Day has extra OTOP visits (>1) | +30.0 per extra OTOP |
+| Day missing Food visit (0 Food places) | +50.0 |
+| Food arrival outside 11:00-13:00 window | Sliding penalty |
 
-**Lower fitness = better route**. The optimizer minimizes this value.
+**Lower fitness = better route**. Most algorithms minimize this value.
 
 ## Day Evaluation
 
@@ -75,7 +80,7 @@ For each day, the evaluator computes:
    - Add travel distance and travel time from previous place
    - Add visit duration (from CSV `VisitTime`, default 45 min if 0)
    - Add CO2 value (from CSV `CO2` field — per-place, not per-travel)
-   - After every 3rd place: add 60-minute lunch break
+   - If the place is a `Food` type, its `VisitTime` acts as the lunch break. Arrival time is logged for penalty checking.
 3. Add travel distance/time from last place to `end_id` (Hotel or Depot)
 4. Check feasibility: `end_time <= 17:00`
 

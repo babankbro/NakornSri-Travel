@@ -49,5 +49,6 @@ async def get_legend():
             {"type": "Travel", "color": "#10B981", "icon": "camera", "label": "แหล่งท่องเที่ยว"},
             {"type": "Culture", "color": "#8B5CF6", "icon": "landmark", "label": "วัฒนธรรม"},
             {"type": "OTOP", "color": "#EF4444", "icon": "shopping-bag", "label": "ผลิตภัณฑ์ชุมชน"},
+            {"type": "Food", "color": "#EC4899", "icon": "utensils", "label": "ร้านอาหาร"},
         ]
     }

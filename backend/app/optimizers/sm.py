@@ -87,6 +87,7 @@ class SMOptimizer(BaseOptimizer):
         end_id: str,
         available_ids: List[str],
         otop_ids: List[str],
+        food_ids: List[str],
         max_places: int,
     ) -> List[str]:
         """Build a day's route using savings-based greedy construction."""
@@ -104,11 +105,22 @@ class SMOptimizer(BaseOptimizer):
             route.append(best_otop)
             used.add(best_otop)
 
-        # Step 2: Compute savings for non-OTOP candidates
-        non_otop = [pid for pid in available_ids if pid not in used and pid not in otop_ids]
-        savings = self._compute_savings(hub_id, non_otop)
+        # Step 2: Add exactly 1 FOOD place
+        available_food = [fid for fid in food_ids if fid in available_ids]
+        if available_food:
+            # Pick the FOOD with best savings relative to hub
+            best_food = min(
+                available_food,
+                key=lambda fid: self.data.get_distance(hub_id, fid),
+            )
+            route.append(best_food)
+            used.add(best_food)
 
-        # Step 3: Greedily add places based on savings
+        # Step 3: Compute savings for non-OTOP, non-FOOD candidates
+        non_otop_food = [pid for pid in available_ids if pid not in used and pid not in otop_ids and pid not in food_ids]
+        savings = self._compute_savings(hub_id, non_otop_food)
+
+        # Step 4: Greedily add places based on savings
         for pid_i, pid_j, saving_val in savings:
             if len(route) >= max_places:
                 break
@@ -123,11 +135,11 @@ class SMOptimizer(BaseOptimizer):
                     route.append(pid)
                     used.add(pid)
 
-        # Step 4: Fill remaining slots with best-rated unused places
+        # Step 5: Fill remaining slots with best-rated unused places
         if len(route) < max_places:
             remaining = [
                 pid for pid in available_ids
-                if pid not in used and pid not in otop_ids
+                if pid not in used and pid not in otop_ids and pid not in food_ids
             ]
             place_map = {p.id: p for p in self.data.places}
             remaining.sort(key=lambda pid: place_map[pid].rate, reverse=True)
@@ -141,7 +153,7 @@ class SMOptimizer(BaseOptimizer):
                     route.append(pid)
                     used.add(pid)
 
-        # Step 5: Order by nearest-neighbor
+        # Step 6: Order by nearest-neighbor
         route = self._nearest_neighbor_order(hub_id, end_id, route)
 
         return route
@@ -204,6 +216,7 @@ class SMOptimizer(BaseOptimizer):
         candidates = self._get_candidate_places()
         all_candidate_ids = [p.id for p in candidates]
         otop_ids = [p.id for p in self.data.get_otop_places()]
+        food_ids = [p.id for p in candidates if p.type == PlaceType.FOOD]
 
         # Build each day's route sequentially
         used_ids: set = set()
@@ -218,6 +231,7 @@ class SMOptimizer(BaseOptimizer):
                 end_id=end_id,
                 available_ids=available,
                 otop_ids=otop_ids,
+                food_ids=food_ids,
                 max_places=self.request.max_places_per_day,
             )
             day_places.append(day_route)

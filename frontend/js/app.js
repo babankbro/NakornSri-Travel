@@ -88,13 +88,171 @@ function switchTab(tabName) {
     });
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     const btns = document.querySelectorAll('.tab-btn');
-    const idx = { optimize: 0, results: 1, compare: 2, import: 3 }[tabName];
+    const idx = { optimize: 0, scenarios: 1, results: 2, compare: 3, import: 4 }[tabName];
     if (btns[idx]) {
         btns[idx].classList.add('active');
         btns[idx].classList.remove('bg-gray-200', 'text-gray-700');
     }
     if (tabName === 'results') loadResultsList();
     if (tabName === 'import') checkGoogleStatus();
+    if (tabName === 'scenarios') renderScenarios();
+}
+
+// ─── Scenario Dashboard ────────────────────────────────────────────────────
+
+const SCENARIOS = [
+    { id: 'multi', name: '1. Multi-Objective (Balanced)', icon: 'fa-balance-scale', desc: 'สมดุลทุกด้าน (Balanced Weights)', lifestyle: 'all', wDist: 0.33, wCo2: 0.33, wRate: 0.34 },
+    { id: 'culture', name: '2. Culture Lifestyle', icon: 'fa-landmark', desc: 'สายวัฒนธรรม (Culture priority)', lifestyle: 'culture', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
+    { id: 'cafe', name: '3. Cafe Lifestyle', icon: 'fa-camera', desc: 'สายคาเฟ่/ถ่ายรูป (Travel priority)', lifestyle: 'cafe', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
+    { id: 'food', name: '4. Food Lifestyle', icon: 'fa-utensils', desc: 'สายของอร่อย (Food priority)', lifestyle: 'food', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
+    { id: 'dist', name: '5. Distance Domain', icon: 'fa-route', desc: 'เน้นระยะทางสั้นที่สุด', lifestyle: 'all', wDist: 0.8, wCo2: 0.1, wRate: 0.1 },
+    { id: 'co2', name: '6. CO2 Domain', icon: 'fa-leaf', desc: 'เน้นปล่อยคาร์บอนน้อยที่สุด', lifestyle: 'all', wDist: 0.1, wCo2: 0.8, wRate: 0.1 },
+    { id: 'rate', name: '7. Rating Domain', icon: 'fa-star', desc: 'เน้นความนิยมสูงสุด', lifestyle: 'all', wDist: 0.1, wCo2: 0.1, wRate: 0.8 },
+];
+
+let scenarioState = {}; // { id: { status: 'idle|running|done|error', result: {...} } }
+
+function renderScenarios() {
+    const grid = document.getElementById('scenariosGrid');
+    grid.innerHTML = '';
+
+    SCENARIOS.forEach(s => {
+        const state = scenarioState[s.id] || { status: 'idle' };
+        const isRunning = state.status === 'running';
+        const isDone = state.status === 'done';
+        const res = state.result;
+
+        const card = document.createElement('div');
+        card.className = `card p-5 scenario-card fade-in flex flex-col h-full ${isRunning ? 'border-blue-400 bg-blue-50/30' : ''}`;
+        
+        let statusBadge = '';
+        if (isRunning) statusBadge = '<span class="flex items-center gap-1 text-blue-600 text-xs font-bold animate-pulse"><i class="fas fa-spinner fa-spin"></i> กำลังรัน...</span>';
+        else if (isDone) statusBadge = '<span class="flex items-center gap-1 text-green-600 text-xs font-bold"><i class="fas fa-check-circle"></i> สำเร็จ</span>';
+        else statusBadge = '<span class="flex items-center gap-1 text-gray-400 text-xs font-bold"><i class="status-dot bg-gray-300 mr-1"></i> พร้อมรัน</span>';
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-3">
+                <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                    <i class="fas ${s.icon} fa-fw"></i>
+                </div>
+                ${statusBadge}
+            </div>
+            
+            <h3 class="font-bold text-gray-800 text-lg mb-1">${s.name}</h3>
+            <p class="text-xs text-gray-500 mb-4">${s.desc}</p>
+            
+            <div class="flex flex-wrap gap-1.5 mb-4">
+                <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">Style: ${s.lifestyle}</span>
+                <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">W: ${s.wDist}/${s.wCo2}/${s.wRate}</span>
+            </div>
+
+            <div class="mt-auto space-y-3">
+                ${isDone && res ? `
+                    <div class="grid grid-cols-4 gap-1 py-3 border-y border-gray-100">
+                        <div class="text-center">
+                            <div class="text-[10px] text-gray-400 uppercase">Dist</div>
+                            <div class="text-sm font-bold text-gray-700">${res.summary.total_distance_km.toFixed(1)}</div>
+                            <div class="text-[9px] text-gray-400">km</div>
+                        </div>
+                        <div class="text-center border-l border-gray-50">
+                            <div class="text-[10px] text-gray-400 uppercase">CO₂</div>
+                            <div class="text-sm font-bold text-gray-700">${res.summary.total_co2_kg.toFixed(2)}</div>
+                            <div class="text-[9px] text-gray-400">kg</div>
+                        </div>
+                        <div class="text-center border-l border-gray-50">
+                            <div class="text-[10px] text-gray-400 uppercase">Time</div>
+                            <div class="text-sm font-bold text-gray-700">${res.summary.total_time_min.toFixed(0)}</div>
+                            <div class="text-[9px] text-gray-400">min</div>
+                        </div>
+                        <div class="text-center border-l border-gray-50">
+                            <div class="text-[10px] text-gray-400 uppercase">Places</div>
+                            <div class="text-sm font-bold text-blue-600">${res.days.reduce((acc, d) => acc + d.places.length, 0)}</div>
+                            <div class="text-[9px] text-gray-400">total</div>
+                        </div>
+                    </div>
+                ` : '<div class="h-[65px] flex items-center justify-center border-y border-dashed border-gray-200 text-gray-300 text-xs italic font-mono">NO DATA</div>'}
+
+                <div class="flex gap-2">
+                    <button onclick="runScenario('${s.id}')" ${isRunning ? 'disabled' : ''} 
+                            class="flex-1 ${isDone ? 'bg-gray-100 hover:bg-gray-200 text-gray-600' : 'bg-blue-500 hover:bg-blue-600 text-white'} py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2">
+                        <i class="fas fa-play"></i> ${isDone ? 'รันซ้ำ' : 'รันผลทดสอบ'}
+                    </button>
+                    ${isDone ? `
+                        <button onclick="viewScenario('${res.result_id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold transition" title="ดูบนแผนที่">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+async function runScenario(id) {
+    const s = SCENARIOS.find(x => x.id === id);
+    if (!s) return;
+
+    scenarioState[id] = { status: 'running' };
+    renderScenarios();
+
+    const body = {
+        trip_days: parseInt(document.getElementById('tripDays').value) || 2,
+        algorithm: 'ga_alns',
+        lifestyle_type: s.lifestyle,
+        min_places_per_day: 5,
+        max_places_per_day: 7,
+        weight_distance: s.wDist,
+        weight_co2: s.wCo2,
+        weight_rating: s.wRate,
+    };
+
+    try {
+        const res = await fetch(`${API}/api/v1/routes/optimize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+
+        const fullRes = await fetch(`${API}/api/v1/results/${data.result_id}`);
+        const result = await fullRes.json();
+        
+        scenarioState[id] = { status: 'done', result: result };
+    } catch (e) {
+        console.error(`Scenario ${id} failed:`, e);
+        scenarioState[id] = { status: 'error' };
+        alert(`สถานการณ์ ${s.name} รันไม่สำเร็จ: ${e.message}`);
+    } finally {
+        renderScenarios();
+    }
+}
+
+async function runAllScenarios() {
+    const btn = document.getElementById('btnRunAllScenarios');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังประมวลผลทั้งหมด...';
+
+    for (const s of SCENARIOS) {
+        await runScenario(s.id);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+    alert('รันทุกสถานการณ์เสร็จสมบูรณ์!');
+}
+
+async function viewScenario(resultId) {
+    try {
+        const res = await fetch(`${API}/api/v1/results/${resultId}`);
+        currentResult = await res.json();
+        switchTab('optimize');
+        displayResult(currentResult);
+    } catch (e) {
+        alert('Error loading result');
+    }
 }
 
 // ─── Google Distance Matrix ────────────────────────────────────────────────

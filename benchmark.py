@@ -63,6 +63,10 @@ SMALL1_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "R1", "R2"}
 SMALL2_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "T7", "T8", "R3", "R4"}
 SMALL3_IDS = {"D1", "H3", "H5", "H8", "P3", "P4", "T10", "T11", "T14", "T15", "R5", "R6"}
 
+MEDIUM1_IDS = {"D1"} | {f"H{i}" for i in range(1, 4)} | {f"P{i}" for i in range(1, 3)} | {f"T{i}" for i in range(1, 8)} | {f"R{i}" for i in range(1, 5)}
+MEDIUM2_IDS = {"D1"} | {f"H{i}" for i in range(1, 5)} | {f"P{i}" for i in range(1, 4)} | {f"T{i}" for i in range(1, 10)} | {f"R{i}" for i in range(1, 5)}
+MEDIUM3_IDS = {"D1"} | {f"H{i}" for i in range(1, 6)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 12)} | {f"R{i}" for i in range(1, 5)}
+
 LARGE1_IDS = {"D1"} | {f"H{i}" for i in range(1, 7)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 15)} | {f"R{i}" for i in range(1, 6)}
 LARGE2_IDS = {"D1"} | {f"H{i}" for i in range(1, 9)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 18)} | {f"R{i}" for i in range(1, 8)}
 LARGE3_IDS = {"D1"} | {f"H{i}" for i in range(1, 11)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 21)} | {f"R{i}" for i in range(1, 12)}
@@ -75,6 +79,9 @@ TEST_CASES = [
     ("Small1", SMALL1_IDS, 1, "all",     "Minimal 1-day, 8 places"),
     ("Small2", SMALL2_IDS, 1, "all",     "Mixed types 1-day, 10 places"),
     ("Small3", SMALL3_IDS, 1, "all",     "Different subset 1-day, 10 places"),
+    ("Medium1", MEDIUM1_IDS, 1, "all",    "Mid-size 1-day, 18 places"),
+    ("Medium2", MEDIUM2_IDS, 2, "all",    "Mid-size 2-day, 22 places"),
+    ("Medium3", MEDIUM3_IDS, 2, "all",    "Mid-size 2-day, 26 places"),
     ("Large1", LARGE1_IDS, 2, "all",     "Medium 2-day, ~25 places"),
     ("Large2", LARGE2_IDS, 2, "all",     "Larger 2-day, ~30 places"),
     ("Large3", LARGE3_IDS, 2, "all",     "Near-full 2-day, ~35 places"),
@@ -280,7 +287,7 @@ def main():
             weight_distance=0.4,
             weight_co2=0.3,
             weight_rating=0.3,
-            min_places_per_day=3,
+            min_places_per_day=5,
             max_places_per_day=7,
         )
 

@@ -73,9 +73,6 @@ class RouteEvaluator:
                 "visit_time": visit_dur,
             })
 
-            if places_visited > 0 and places_visited % LUNCH_AFTER_N_PLACES == 0:
-                current_time += LUNCH_DURATION_MINUTES
-
             prev_id = pid
 
         travel_dist = self.data.get_distance(prev_id, end_id)
@@ -145,7 +142,7 @@ class RouteEvaluator:
         w_c = self.request.weight_co2
         w_r = getattr(self.request, 'weight_rating', 0.0)
 
-        dist_norm = ev["total_distance_km"] / 200.0
+        dist_norm = ev["total_distance_km"] / 400.0
         co2_norm = ev["total_co2_kg"] / 150.0
 
         place_map = {p.id: p for p in self.data.places}

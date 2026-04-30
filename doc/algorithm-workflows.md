@@ -12,182 +12,80 @@ This document provides detailed workflows, Mermaid flowcharts, and pseudocode fo
    - **Selection:** Use tournament selection to pick parents.
    - **Crossover:** Combine parts of two parents to create a child route (Order Crossover).
    - **Mutation:** Randomly swap, reverse, or replace places/hotels in the child route.
-   - **Replace:** The new population replaces the old one.vOrder	ID	Name	LAT	LNG	VisitTime	RATE	CO2	TYPE
-   1	D1	ท่าอากาศยานนานาชาตินครศรีฯ	8.538719	99.939889	0	4.3		Depot
-   2	H1	กะโรมบ้านสวน รีสอร์ท	8.360417984	99.74073498	0	4	15.39	Hotel
-   3	H2	กันตา ฮิลล์ รีสอร์ท	8.406029814	99.83979274	0	3.7	10.04	Hotel
-   4	H3	คีรีวง ริเวอร์วิว	8.441130353	99.75984549	0	4.3	12.22	Hotel
-   5	H4	คีรีวง วัลเล่ย์	8.410993548	99.79426705	0	4.2	15.33	Hotel
-   6	H5	ชีวะโกวิว	8.348322774	99.72623718	0	4	22.65	Hotel
-   7	H6	ลอยชาเลท์ รีสอร์ท	8.359188706	99.742929	0	4.9	15.77	Hotel
-   8	H7	อุทยานแห่งชาติเขาหลวง	8.368783396	99.73544105	0	4.6	10.4	Hotel
-   9	H8	เขาหลวง รีสอร์ท	8.359019985	99.73874393	0	4.3	7.06	Hotel
-   10	H9	เคียงเขารีสอร์ท	8.442594933	99.77527623	0	4.3	15.77	Hotel
-   11	H10	แพสชั่น รีสอร์ท คีรีวง	8.438770137	99.79230786	0	4.2	33.425	Hotel
-   12	H11	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	0	4.4	15.58	Hotel
-   13	H12	ช่องลมวัลเลย์	8.361671492	99.78182317	0	4.6	24.198	Hotel
-   14	H13	The Creek Haus	8.361078304	99.7268513	0	4.6	8.72	Hotel
-   15	H14	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	0	5	11.35	Hotel
-   16	H15	ขุนเล เรสเตอร์รองท์	8.335065809	99.87211858	0	4.4	36.799	Hotel
-   17	H16	Little House In The Valley ณ บ้านเล็กกลางหุบเขา	8.355893606	99.74985975	0	3.7	8.321	Hotel
-   18	H17	กลุ่มลูกไม้บ้านคีรีวง	8.437928999	99.77938067	0	4.6	1.956	Hotel
-   19	H18	คีรีวง ด้ง ฮิลล์	8.423748919	99.79432967	0	4.4	9.105	Hotel
-   20	T1	เขาช้างสีลานสกา	8.28543016	99.81394367	120	4.5	0.05	Travel
-   21	T2	จุดชมวิวเขาธง	8.326281691	99.70384868	60	4.4	0.087	Travel
-   22	T3	น้ำตกวังไทรลานสกา	8.316418773	99.74926584	120	4.6	0	Travel
-   23	T4	น้ำตกวังไม้ปัก	8.44934399	99.77588218	120	4.5	0.419	Travel
-   24	T5	น้ำตกสอยดาว	8.459388585	99.7618407	120	4.7	0	Travel
-   25	T6	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	60	5	11.35	Travel
-   26	T7	วัดโคกโพธิ์สถิตย์	8.40168917	99.80045817	60	4	6.658	Culture
-   27	T8	วัดคีรีวง	8.662487535	100.4383851	60	4.4	20.337	Culture
-   28	T9	วัดดินดอน	8.399666143	99.81768889	60	4.2	8.323	Culture
-   29	T10	วัดลานสกาใน	8.298537504	99.78635261	60	4.7	24.918	Culture
-   30	T11	ศาลเทวดานาคราช	8.3593356	99.74320649	60	5	2.513	Culture
-   31	T12	ศาลาพ่อท่านคล้ายวาจาสิทธิ์ (เขาธง)	8.347978674	99.71160207	60	4.5	9.561	Culture
-   32	T13	สะพานแขวนคีรีวง	8.441927255	99.76052068	60	4.5	3.287	Travel
-   33	T14	สะพานข้ามคลองท่าดี	8.433305687	99.78310035	60	4.6	0.173	Travel
-   34	T15	หนานหินท่าหา คีรีวง	8.440884916	99.76078468	120	4.3	0	Travel
-   35	T16	อุทยานแห่งชาติเขาหลวง	8.368783396	99.73544105	120	4.6	10.404	Travel
-   36	T17	วัดวังไทร	8.408340074	99.79752097	60	4.6	10.001	Culture
-   37	T18	วังโบราณลานสกา	8.305565634	99.78639139	60	4.4	0.476	Culture
-   38	T19	ถ้ำน้ำวังศรีธรรมโศกราช	8.333324726	99.8309911	120	4.3	0	Culture
-   39	T20	วัดสรรเสริญ (สอ)	8.340119846	99.83348902	60	4.7	5.837	Culture
-   40	T21	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	90	4.4	15.578	Travel
-   41	P1	กลุ่มใบไม้คีรีวง	8.434605446	99.78369948	60	4.2	1.13	OTOP
-   42	P2	กลุ่มลายเทียน 	8.464901531	99.77199548	60	4.6	8.54	OTOP
-   43	P3	กลุ่มมัดย้อมสีธรรมชาติ	8.43654304	99.77939442	60	4.4	4.29	OTOP
-   44	P4	กลุ่มลูกไม้บ้านคีรีวง	8.437928999	99.77938067	60	4.6	1.96	OTOP
-   45	R1	ร้านขนมจีนป้าเขียว	8.405618439	99.81515871	60	4.4	15.83184846	Food
-   46	R2	Little House In The Valley ณ บ้านเล็กกลางหุบเขา	8.355893606	99.74985975	60	3.7	8.321	Food
-   47	R3	ขุนเล เรสเตอร์รองท์	8.335065809	99.87211858	60	4.4	36.799	Food
-   48	R4	ช่องลมวัลเล่ย์ ลานสกา	8.361671492	99.78182317	60	4.6	24.198	Food
-   49	R5	ครัวน้องควีน	8.391332515	99.82615207	60	4.4	20.778	Food
-   50	R6	The Creek Haus	8.361078304	99.7268513	60	4.6	8.72	Food
-   51	R7	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	60	4.4	15.578	Food
-   52	R8	Cloudy - White	8.361079633	99.77897851	60	4.6	33.21	Food
-   53	R9	The Kiriwong Valley Villas & Restaurant	8.410988241	99.79425632	60	4.2	15.33	Food
-   54	R10	ครัว ฌ	8.406621737	99.84121694	60	4.6	35.087	Food
-   55	R11	ครกพ่อเฒ่า	8.435410083	99.77580063	60	4.4	18.029	Food
-   56	R12	Passion Resort & Mung Cruise 	8.438770137	99.79230786	60	4.4	33.425	Food
-   57	R13	ครัวลุงกำนัน @คีรีวง	8.431377136	99.78424633	60	4.3	13.626	Food
-   58	R14	Green Always	8.399034231	99.83951473	60	5	11.68	Food
-   59	R15	คีรีวง ริเวอร์วิว	8.441130353	99.75984549	60	4.3	12.219	Food
-   60	R16	ชีวะโกวิว 	8.355007095	99.72576453	60	4	22.652	Food
-   61	R17	ลอยชาเลท์ รีสอร์ท	8.359431267	99.74282484	60	4.4	15.578	Food
-   62	R18	เคียงเขารีสอร์ท 	8.442589619	99.77523331	60	4.3	15.767	Food
-   63	R19	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	60	5	11.35	Food
-   
+   - **Replace:** The new population replaces the old one.
 4. **Result:** Return the best route found across all generations.
 
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> InitPop["Initialize Population N=100"]
-    InitPop --> EvalPop["Evaluate Fitness"]
-    EvalPop --> LoopGen{"Gen < 200?"}
+    Start(("Start")) --> InitPop["1. Initialize Population N=POPULATION_SIZE"]
+    InitPop --> EvalPop["1.1 Evaluate Fitness"]
+    EvalPop --> LoopGen{"2. Gen < MAX_GENERATIONS?"}
     
-    LoopGen -- Yes --> Elitism["Copy Top 5 Elite Routes"]Order	ID	Name	LAT	LNG	VisitTime	RATE	CO2	TYPE
-    1	D1	ท่าอากาศยานนานาชาตินครศรีฯ	8.538719	99.939889	0	4.3		Depot
-    2	H1	กะโรมบ้านสวน รีสอร์ท	8.360417984	99.74073498	0	4	15.39	Hotel
-    3	H2	กันตา ฮิลล์ รีสอร์ท	8.406029814	99.83979274	0	3.7	10.04	Hotel
-    4	H3	คีรีวง ริเวอร์วิว	8.441130353	99.75984549	0	4.3	12.22	Hotel
-    5	H4	คีรีวง วัลเล่ย์	8.410993548	99.79426705	0	4.2	15.33	Hotel
-    6	H5	ชีวะโกวิว	8.348322774	99.72623718	0	4	22.65	Hotel
-    7	H6	ลอยชาเลท์ รีสอร์ท	8.359188706	99.742929	0	4.9	15.77	Hotel
-    8	H7	อุทยานแห่งชาติเขาหลวง	8.368783396	99.73544105	0	4.6	10.4	Hotel
-    9	H8	เขาหลวง รีสอร์ท	8.359019985	99.73874393	0	4.3	7.06	Hotel
-    10	H9	เคียงเขารีสอร์ท	8.442594933	99.77527623	0	4.3	15.77	Hotel
-    11	H10	แพสชั่น รีสอร์ท คีรีวง	8.438770137	99.79230786	0	4.2	33.425	Hotel
-    12	H11	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	0	4.4	15.58	Hotel
-    13	H12	ช่องลมวัลเลย์	8.361671492	99.78182317	0	4.6	24.198	Hotel
-    14	H13	The Creek Haus	8.361078304	99.7268513	0	4.6	8.72	Hotel
-    15	H14	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	0	5	11.35	Hotel
-    16	H15	ขุนเล เรสเตอร์รองท์	8.335065809	99.87211858	0	4.4	36.799	Hotel
-    17	H16	Little House In The Valley ณ บ้านเล็กกลางหุบเขา	8.355893606	99.74985975	0	3.7	8.321	Hotel
-    18	H17	กลุ่มลูกไม้บ้านคีรีวง	8.437928999	99.77938067	0	4.6	1.956	Hotel
-    19	H18	คีรีวง ด้ง ฮิลล์	8.423748919	99.79432967	0	4.4	9.105	Hotel
-    20	T1	เขาช้างสีลานสกา	8.28543016	99.81394367	120	4.5	0.05	Travel
-    21	T2	จุดชมวิวเขาธง	8.326281691	99.70384868	60	4.4	0.087	Travel
-    22	T3	น้ำตกวังไทรลานสกา	8.316418773	99.74926584	120	4.6	0	Travel
-    23	T4	น้ำตกวังไม้ปัก	8.44934399	99.77588218	120	4.5	0.419	Travel
-    24	T5	น้ำตกสอยดาว	8.459388585	99.7618407	120	4.7	0	Travel
-    25	T6	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	60	5	11.35	Travel
-    26	T7	วัดโคกโพธิ์สถิตย์	8.40168917	99.80045817	60	4	6.658	Culture
-    27	T8	วัดคีรีวง	8.662487535	100.4383851	60	4.4	20.337	Culture
-    28	T9	วัดดินดอน	8.399666143	99.81768889	60	4.2	8.323	Culture
-    29	T10	วัดลานสกาใน	8.298537504	99.78635261	60	4.7	24.918	Culture
-    30	T11	ศาลเทวดานาคราช	8.3593356	99.74320649	60	5	2.513	Culture
-    31	T12	ศาลาพ่อท่านคล้ายวาจาสิทธิ์ (เขาธง)	8.347978674	99.71160207	60	4.5	9.561	Culture
-    32	T13	สะพานแขวนคีรีวง	8.441927255	99.76052068	60	4.5	3.287	Travel
-    33	T14	สะพานข้ามคลองท่าดี	8.433305687	99.78310035	60	4.6	0.173	Travel
-    34	T15	หนานหินท่าหา คีรีวง	8.440884916	99.76078468	120	4.3	0	Travel
-    35	T16	อุทยานแห่งชาติเขาหลวง	8.368783396	99.73544105	120	4.6	10.404	Travel
-    36	T17	วัดวังไทร	8.408340074	99.79752097	60	4.6	10.001	Culture
-    37	T18	วังโบราณลานสกา	8.305565634	99.78639139	60	4.4	0.476	Culture
-    38	T19	ถ้ำน้ำวังศรีธรรมโศกราช	8.333324726	99.8309911	120	4.3	0	Culture
-    39	T20	วัดสรรเสริญ (สอ)	8.340119846	99.83348902	60	4.7	5.837	Culture
-    40	T21	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	90	4.4	15.578	Travel
-    41	P1	กลุ่มใบไม้คีรีวง	8.434605446	99.78369948	60	4.2	1.13	OTOP
-    42	P2	กลุ่มลายเทียน 	8.464901531	99.77199548	60	4.6	8.54	OTOP
-    43	P3	กลุ่มมัดย้อมสีธรรมชาติ	8.43654304	99.77939442	60	4.4	4.29	OTOP
-    44	P4	กลุ่มลูกไม้บ้านคีรีวง	8.437928999	99.77938067	60	4.6	1.96	OTOP
-    45	R1	ร้านขนมจีนป้าเขียว	8.405618439	99.81515871	60	4.4	15.83184846	Food
-    46	R2	Little House In The Valley ณ บ้านเล็กกลางหุบเขา	8.355893606	99.74985975	60	3.7	8.321	Food
-    47	R3	ขุนเล เรสเตอร์รองท์	8.335065809	99.87211858	60	4.4	36.799	Food
-    48	R4	ช่องลมวัลเล่ย์ ลานสกา	8.361671492	99.78182317	60	4.6	24.198	Food
-    49	R5	ครัวน้องควีน	8.391332515	99.82615207	60	4.4	20.778	Food
-    50	R6	The Creek Haus	8.361078304	99.7268513	60	4.6	8.72	Food
-    51	R7	ซิลเวอร์วัลเลย์ ฟาร์มคาเฟ่ แอนด์ รีสอร์ท	8.359247775	99.74126237	60	4.4	15.578	Food
-    52	R8	Cloudy - White	8.361079633	99.77897851	60	4.6	33.21	Food
-    53	R9	The Kiriwong Valley Villas & Restaurant	8.410988241	99.79425632	60	4.2	15.33	Food
-    54	R10	ครัว ฌ	8.406621737	99.84121694	60	4.6	35.087	Food
-    55	R11	ครกพ่อเฒ่า	8.435410083	99.77580063	60	4.4	18.029	Food
-    56	R12	Passion Resort & Mung Cruise 	8.438770137	99.79230786	60	4.4	33.425	Food
-    57	R13	ครัวลุงกำนัน @คีรีวง	8.431377136	99.78424633	60	4.3	13.626	Food
-    58	R14	Green Always	8.399034231	99.83951473	60	5	11.68	Food
-    59	R15	คีรีวง ริเวอร์วิว	8.441130353	99.75984549	60	4.3	12.219	Food
-    60	R16	ชีวะโกวิว 	8.355007095	99.72576453	60	4	22.652	Food
-    61	R17	ลอยชาเลท์ รีสอร์ท	8.359431267	99.74282484	60	4.4	15.578	Food
-    62	R18	เคียงเขารีสอร์ท 	8.442589619	99.77523331	60	4.3	15.767	Food
-    63	R19	ลานสกาฟาร์มแกะ	8.333094163	99.78670471	60	5	11.35	Food
+    LoopGen -- Yes --> Elitism["2.1 Copy Top ELITE_SIZE Elite Routes"]
     
-    Elitism --> LoopPop{"New Pop < 100?"}
+    Elitism --> LoopPop{"2.2 New Pop < POPULATION_SIZE?"}
     
-    LoopPop -- Yes --> Selection["Tournament Selection x2"]
-    Selection --> Crossover["Order Crossover prob=0.8"]
-    Crossover --> Mutation["Mutation prob=0.3"]
-    Mutation --> EvalChild["Evaluate Child & Add to New Pop"]
+    LoopPop -- Yes --> Selection["2.2.1 Tournament Selection x2 (size=TOURNAMENT_SIZE)"]
+    Selection --> Crossover["2.2.2 Order Crossover prob=CROSSOVER_RATE"]
+    Crossover --> Mutation["2.2.3 Mutation prob=MUTATION_RATE"]
+    Mutation --> EvalChild["2.2.4 Evaluate Child & Add to New Pop"]
     EvalChild --> LoopPop
     
-    LoopPop -- No --> UpdateBest["Update Global Best Route"]
+    LoopPop -- No --> UpdateBest["2.3 Update Global Best Route"]
     UpdateBest --> LoopGen
     
-    LoopGen -- No --> End(("End: Return Best"))
+    LoopGen -- No --> End(("3. End: Return Best"))
 ```
 
 **Pseudocode:**
 ```text
-function GA_Optimize():
-    population = GenerateRandomPopulation(size=100)
-    best_route = MinFitness(population)
+Input:
+  - POPULATION_SIZE (e.g., 100)
+  - MAX_GENERATIONS (e.g., 200)
+  - CROSSOVER_RATE (e.g., 0.8)
+  - MUTATION_RATE (e.g., 0.3)
+  - TOURNAMENT_SIZE (e.g., 5)
+  - ELITE_SIZE (e.g., 5)
 
-    for gen from 1 to 200:
-        new_population = []
-        new_population.add(Top 5 Elite from population)
+// 1. Initialization
+Create initial population P = GenerateRandomPopulation(size=POPULATION_SIZE)
+Evaluate fitness for each route in P
+best_route = MinFitness(P)
+Generation = 1
+
+// 2. Evolution Loop
+WHILE Generation <= MAX_GENERATIONS DO:
+    
+    Create new_population P_new
+    
+    // 2.1 Elitism
+    Add Top ELITE_SIZE Elite from P to P_new
+    
+    WHILE size(P_new) < POPULATION_SIZE DO:
+        // 2.2 Selection
+        Select parents P1, P2 from P based on fitness (Tournament, size=TOURNAMENT_SIZE)
         
-        while size(new_population) < 100:
-            parent1 = TournamentSelect(population, tournament_size=5)
-            parent2 = TournamentSelect(population, tournament_size=5)
-            
-            child = Crossover(parent1, parent2, rate=0.8)
-            child = Mutate(child, rate=0.3)
-            
-            new_population.add(child)
-            
-        population = new_population
-        best_route = MinFitness(population ∪ {best_route})
+        // 2.3 Crossover
+        Apply Order Crossover to P1, P2 to create offspring child (rate=CROSSOVER_RATE)
         
-    return best_route
+        // 2.4 Mutation
+        Apply mutation operator to child (rate=MUTATION_RATE)
+        
+        // 2.5 Evaluation & Replacement
+        Evaluate fitness for child and add to P_new
+    END WHILE
+    
+    // 2.6 Update Population & Best Solution
+    Replace old population P with P_new
+    Update best_route = MinFitness(P ∪ {best_route})
+    
+    // 2.7 Update Generation Counter
+    Generation = Generation + 1
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route
 ```
 
 ---
@@ -205,50 +103,72 @@ function GA_Optimize():
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> Init["Init Route, Temp=100"]
-    Init --> LoopTemp{"Temp > 0.01?"}
+    Start(("Start")) --> Init["1. Init Route, Temp=INITIAL_TEMP"]
+    Init --> LoopTemp{"2. Temp > MIN_TEMP?"}
     
-    LoopTemp -- Yes --> LoopIter{"Iter < 50?"}
+    LoopTemp -- Yes --> LoopIter{"2.1 Iter < ITERATIONS_PER_TEMP?"}
     
-    LoopIter -- Yes --> GenNeighbor["Generate Random Neighbor"]
-    GenNeighbor --> CalcDelta["Delta = Neighbor - Current"]
-    CalcDelta --> CheckBetter{"Delta < 0?"}
+    LoopIter -- Yes --> GenNeighbor["2.1.1 Generate Random Neighbor"]
+    GenNeighbor --> CalcDelta["2.1.2 Delta = Neighbor - Current"]
+    CalcDelta --> CheckBetter{"2.1.3 Delta < 0?"}
     
-    CheckBetter -- Yes --> Accept["Accept & Update Current"]
-    CheckBetter -- No --> ProbAccept{"Rand() < exp(-Delta/Temp)?"}
+    CheckBetter -- Yes --> Accept["2.1.4 Accept & Update Current"]
+    CheckBetter -- No --> ProbAccept{"2.1.5 Rand() < exp(-Delta/Temp)?"}
     
     ProbAccept -- Yes --> Accept
     ProbAccept -- No --> LoopIter
     
-    Accept --> UpdateBest["Update Global Best"]
+    Accept --> UpdateBest["2.1.6 Update Global Best"]
     UpdateBest --> LoopIter
     
-    LoopIter -- No --> Cool["Temp = Temp * 0.995"]
+    LoopIter -- No --> Cool["2.2 Temp = Temp * COOLING_RATE"]
     Cool --> LoopTemp
     
-    LoopTemp -- No --> End(("End: Return Best"))
+    LoopTemp -- No --> End(("3. End: Return Best"))
 ```
 
 **Pseudocode:**
 ```text
-function SA_Optimize():
-    current_route = GenerateRandomRoute()
-    best_route = current_route
-    temp = 100.0
+Input:
+  - INITIAL_TEMP (e.g., 1000)
+  - COOLING_RATE (e.g., 0.95)
+  - MIN_TEMP (e.g., 1)
+  - ITERATIONS_PER_TEMP (e.g., 10)
+
+// 1. Initialization
+Create initial current_route = GenerateRandomRoute()
+best_route = current_route
+Set initial temperature Temp = INITIAL_TEMP
+
+// 2. Annealing Loop
+WHILE Temp > MIN_TEMP DO:
     
-    while temp > 0.01:
-        for iter from 1 to 50:
-            neighbor = GenerateRandomNeighbor(current_route)
-            delta = Fitness(neighbor) - Fitness(current_route)
-            
-            if delta < 0 or Random() < exp(-delta / temp):
-                current_route = neighbor
-                if Fitness(current_route) < Fitness(best_route):
-                    best_route = current_route
-                    
-        temp = temp * 0.995
+    // 2.1 Iterations at current temperature
+    FOR Iteration from 1 to ITERATIONS_PER_TEMP DO:
         
-    return best_route
+        // 2.1.1 Neighborhood Move
+        Generate neighbor from current_route (randomly swap/reverse/replace)
+        
+        // 2.1.2 Evaluation
+        Calculate delta = Fitness(neighbor) - Fitness(current_route)
+        
+        // 2.1.3 Acceptance Criterion
+        IF delta < 0 OR Random() < exp(-delta / Temp) THEN
+            current_route = neighbor
+            
+            // 2.1.4 Update Best Solution
+            IF Fitness(current_route) < Fitness(best_route) THEN
+                best_route = current_route
+            END IF
+        END IF
+    END FOR
+    
+    // 2.2 Cooling Schedule
+    Temp = Temp * COOLING_RATE
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route
 ```
 
 ---
@@ -264,52 +184,70 @@ function SA_Optimize():
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> SelectHotels["Select Optimal Hotels"]
-    SelectHotels --> LoopDays{"For Each Day?"}
+    Start(("Start")) --> SelectHotels["1. Select Optimal Hotels"]
+    SelectHotels --> LoopDays{"2. For Each Day?"}
     
-    LoopDays -- Yes --> CalcSavings["Compute Clarke-Wright Savings"]
-    CalcSavings --> SortSavings["Sort Savings Descending"]
-    SortSavings --> InitDay["Add 1 OTOP Place"]
-    InitDay --> GreedyAdd["Greedily Add Places via Savings"]
-    GreedyAdd --> CheckConstraints{"Valid Limits & Time?"}
-    CheckConstraints -- Yes --> AddToDay["Add Place to Day Route"]
-    CheckConstraints -- No --> NextSaving["Check Next Saving Pair"]
-    AddToDay --> FillRemaining["Fill Remaining Slots by Rate"]
+    LoopDays -- Yes --> CalcSavings["2.1 Compute Clarke-Wright Savings"]
+    CalcSavings --> SortSavings["2.2 Sort Savings Descending"]
+    SortSavings --> InitDay["2.3 Add 1 OTOP Place"]
+    InitDay --> GreedyAdd["2.4 Greedily Add Places via Savings"]
+    GreedyAdd --> CheckConstraints{"2.4.1 Valid Limits & Time?"}
+    CheckConstraints -- Yes --> AddToDay["2.4.2 Add Place to Day Route"]
+    CheckConstraints -- No --> NextSaving["2.4.3 Check Next Saving Pair"]
+    AddToDay --> FillRemaining["2.5 Fill Remaining Slots by Rate"]
     NextSaving --> FillRemaining
-    FillRemaining --> NNOrder["Nearest-Neighbor Ordering"]
-    NNOrder --> SaveDay["Store Day Route"]
+    FillRemaining --> NNOrder["2.6 Nearest-Neighbor Ordering"]
+    NNOrder --> SaveDay["2.7 Store Day Route"]
     SaveDay --> LoopDays
     
-    LoopDays -- No --> BuildFinal["Combine Days & Hotels"]
-    BuildFinal --> End(("End: Return Final Route"))
+    LoopDays -- No --> BuildFinal["3. Combine Days & Hotels"]
+    BuildFinal --> End(("3.1 End: Return Final Route"))
 ```
 
 **Pseudocode:**
 ```text
-function SM_Optimize():
-    hotel_ids = SelectBestHotels(trip_days - 1)
-    route_days = []
+Input:
+  - TRIP_DAYS (e.g., 3)
+  - PLACES_LIST (array of locations)
+  - DISTANCE_MATRIX (NxN matrix)
+  - TIME_MATRIX (NxN matrix)
+
+// 1. Initialization
+Select optimal hotel_ids based on average distance (TRIP_DAYS - 1)
+Initialize empty list route_days
+
+// 2. Day-by-Day Construction Loop
+FOR day = 1 to TRIP_DAYS DO:
+    Set hub = Start location for day
+    Set end = End location for day
+    Define available_places = All candidates excluding already used
     
-    for day = 1 to trip_days:
-        hub = Start location for day
-        end = End location for day
-        
-        available_places = All candidates excluding already used
-        savings = ComputeClarkeWrightSavings(hub, available_places)
-        
-        day_route = [Pick Best OTOP for hub, Pick Best Food for hub]
-        
-        for pair in savings:
-            if pair fits within max_places and time_window:
-                day_route.append(pair)
-                
-        if length(day_route) < max_places:
-            day_route.append(Best rated unused places)
-            
-        day_route = NearestNeighborOrder(hub, end, day_route)
-        route_days.append(day_route)
-        
-    return Route(route_days, hotel_ids)
+    // 2.1 Savings Calculation
+    Compute Clarke-Wright savings for all pairs from hub
+    Sort savings in descending order
+    
+    // 2.2 Initial Day Route
+    Initialize day_route with best OTOP place for hub
+    
+    // 2.3 Greedily Add Places
+    FOR EACH pair IN sorted savings DO:
+        IF pair fits within max_places AND time_window THEN
+            Append pair to day_route
+        END IF
+    END FOR
+    
+    // 2.4 Fill Remaining Slots
+    IF length(day_route) < max_places THEN
+        Append best rated unused places to day_route
+    END IF
+    
+    // 2.5 Finalize Order
+    Apply Nearest-Neighbor ordering to day_route
+    Append day_route to route_days
+END FOR
+
+// 3. Return Best Solution
+RETURN Route(route_days, hotel_ids)
 ```
 
 ---
@@ -325,67 +263,83 @@ function SM_Optimize():
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> InitPop["Initialize Pop N=50"]
-    InitPop --> LoopGen{"Gen < 80?"}
+    Start(("Start")) --> InitPop["1. Initialize Pop N=POPULATION_SIZE"]
+    InitPop --> LoopGen{"2. Gen < MAX_GENERATIONS?"}
     
-    LoopGen -- Yes --> ALNSElite["Apply ALNS Local Search to Top 5 Elite"]
-    ALNSElite --> LoopPop{"New Pop < 50?"}
+    LoopGen -- Yes --> ALNSElite["2.1 Apply ALNS Local Search to Top ELITE_SIZE Elite"]
+    ALNSElite --> LoopPop{"2.2 New Pop < POPULATION_SIZE?"}
     
-    LoopPop -- Yes --> Crossover["Tournament + Crossover"]
-    Crossover --> Mutate["Mutation"]
-    Mutate --> ProbALNS{"Rand < 0.3?"}
+    LoopPop -- Yes --> Crossover["2.2.1 Tournament + Crossover"]
+    Crossover --> Mutate["2.2.2 Mutation"]
+    Mutate --> ProbALNS{"2.2.3 Rand < MUTATION_RATE?"}
     
-    ProbALNS -- Yes --> ALNSChild["Apply ALNS Local Search to Child"]
-    ProbALNS -- No --> AddChild["Add to New Pop"]
+    ProbALNS -- Yes --> ALNSChild["2.2.4 Apply ALNS Local Search to Child"]
+    ProbALNS -- No --> AddChild["2.2.5 Add to New Pop"]
     ALNSChild --> AddChild
     AddChild --> LoopPop
     
-    LoopPop -- No --> UpdateBest["Update Global Best"]
+    LoopPop -- No --> UpdateBest["2.3 Update Global Best"]
     UpdateBest --> LoopGen
     
-    LoopGen -- No --> End(("End: Return Best"))
+    LoopGen -- No --> End(("3. End: Return Best"))
 ```
 
 **Pseudocode:**
 ```text
-function GA_ALNS_Optimize():
-    population = GenerateRandomPopulation(size=50)
-    best_route = MinFitness(population)
-    
-    for gen from 1 to 80:
-        new_population = []
-        
-        for elite in Top 5 of population:
-            improved_elite = ALNS_LocalSearch(elite, iterations=10)
-            new_population.add(improved_elite)
-            
-        while size(new_population) < 50:
-            parent1, parent2 = TournamentSelect(x2)
-            child = Crossover(parent1, parent2)
-            child = Mutate(child)
-            
-            if Random() < 0.3:
-                child = ALNS_LocalSearch(child, iterations=10)
-                
-            new_population.add(child)
-            
-        population = new_population
-        best_route = MinFitness(population ∪ {best_route})
-        
-    return best_route
+Input:
+  - POPULATION_SIZE (e.g., 100)
+  - MAX_GENERATIONS (e.g., 200)
+  - CROSSOVER_RATE (e.g., 0.8)
+  - MUTATION_RATE (e.g., 0.3)
+  - TOURNAMENT_SIZE (e.g., 5)
+  - ELITE_SIZE (e.g., 5)
+  - ALNS_ITERATIONS (e.g., 50)
+  - N_REMOVE (e.g., 3)
 
-function ALNS_LocalSearch(route, iterations):
-    best = route
-    for iter from 1 to iterations:
-        destroy_op = Random(Random, Worst, Shaw)
-        repair_op = Random(Greedy, Random, Regret)
+// 1. Initialization
+Create initial population P = GenerateRandomPopulation(size=POPULATION_SIZE)
+Evaluate fitness for each route in P
+best_route = MinFitness(P)
+Generation = 1
+
+// 2. Evolution Loop with ALNS Enhancement
+WHILE Generation <= MAX_GENERATIONS DO:
+    
+    Create new_population P_new
+    
+    // 2.1 Elite Polish (ALNS Local Search)
+    FOR EACH elite IN Top ELITE_SIZE of P DO:
+        Apply ALNS Local Search (ALNS_ITERATIONS iterations) to elite
+        Add improved_elite to P_new
+    END FOR
+    
+    WHILE size(P_new) < POPULATION_SIZE DO:
+        // 2.2 Selection
+        Select parents P1, P2 using Tournament Selection
         
-        destroyed = destroy_op(route)
-        repaired = repair_op(destroyed)
+        // 2.3 Crossover & Mutation
+        Apply Crossover to P1, P2 to create child
+        Apply Mutation to child
         
-        if Fitness(repaired) < Fitness(best):
-            best = repaired
-    return best
+        // 2.4 Child Polish (ALNS Local Search)
+        IF Random() < MUTATION_RATE THEN
+            Apply ALNS Local Search (ALNS_ITERATIONS iterations) to child
+        END IF
+        
+        // 2.5 Evaluation & Replacement
+        Evaluate fitness for child and add to P_new
+    END WHILE
+    
+    // 2.6 Update Population & Best Solution
+    Replace old population P with P_new
+    Update best_route = MinFitness(P ∪ {best_route})
+    
+    // 2.7 Update Generation Counter
+    Generation = Generation + 1
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route
 ```
 
 ---
@@ -400,63 +354,92 @@ function ALNS_LocalSearch(route, iterations):
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> Init["Init Route, Temp=50, Weights=1"]
-    Init --> LoopTemp{"Temp > 0.1?"}
+    Start(("Start")) --> Init["1. Init Route, Temp=INITIAL_TEMP, Weights=1"]
+    Init --> LoopTemp{"2. Temp > MIN_TEMP?"}
     
-    LoopTemp -- Yes --> LoopIter{"Iter < 15?"}
+    LoopTemp -- Yes --> LoopIter{"2.1 Iter < ITERATIONS_PER_TEMP?"}
     
-    LoopIter -- Yes --> SelectOps["Select Destroy & Repair Ops via Weights"]
-    SelectOps --> ApplyALNS["Apply Destroy -> Repair"]
-    ApplyALNS --> EvalDelta["Delta = Neighbor - Current"]
-    EvalDelta --> AcceptRules{"Delta < 0 or Prob?"}
+    LoopIter -- Yes --> SelectOps["2.1.1 Select Destroy & Repair Ops via Weights"]
+    SelectOps --> ApplyALNS["2.1.2 Apply Destroy -> Repair"]
+    ApplyALNS --> EvalDelta["2.1.3 Delta = Neighbor - Current"]
+    EvalDelta --> AcceptRules{"2.1.4 Delta < 0 or Prob?"}
     
-    AcceptRules -- Yes --> Accept["Accept Neighbor & Score Ops"]
-    AcceptRules -- No --> Reject["Reject"]
+    AcceptRules -- Yes --> Accept["2.1.5 Accept Neighbor & Score Ops"]
+    AcceptRules -- No --> Reject["2.1.6 Reject"]
     Accept --> LoopIter
     Reject --> LoopIter
     
-    LoopIter -- No --> UpdateWeights["Update Op Weights per 100 iters"]
-    UpdateWeights --> Cool["Temp = Temp * 0.99"]
+    LoopIter -- No --> UpdateWeights["2.2 Update Op Weights per 100 iters"]
+    UpdateWeights --> Cool["2.3 Temp = Temp * COOLING_RATE"]
     Cool --> LoopTemp
     
-    LoopTemp -- No --> End(("End: Return Best"))
+    LoopTemp -- No --> End(("3. End: Return Best"))
 ```
 
 **Pseudocode:**
 ```text
-function SA_ALNS_Optimize():
-    current = GenerateRandomRoute()
-    best = current
-    temp = 50.0
-    destroy_weights = [1.0, 1.0, 1.0]
-    repair_weights = [1.0, 1.0, 1.0]
+Input:
+  - INITIAL_TEMP (e.g., 1000)
+  - COOLING_RATE (e.g., 0.95)
+  - MIN_TEMP (e.g., 1)
+  - ITERATIONS_PER_TEMP (e.g., 10)
+  - N_REMOVE (e.g., 3)
+
+// 1. Initialization
+Create initial current_route = GenerateRandomRoute()
+best_route = current_route
+Set initial temperature Temp = INITIAL_TEMP
+Initialize destroy_weights and repair_weights (all 1.0)
+Total_Iterations = 0
+
+// 2. Annealing & ALNS Loop
+WHILE Temp > MIN_TEMP DO:
     
-    while temp > 0.1:
-        for iter from 1 to 15:
-            destroy_op = SelectWeighted(destroy_weights)
-            repair_op = SelectWeighted(repair_weights)
-            
-            neighbor = repair_op(destroy_op(current))
-            delta = Fitness(neighbor) - Fitness(current)
-            
-            accept = False
-            if delta < 0:
-                accept = True
-                UpdateScores(destroy_op, repair_op, score=+3 or +2)
-            else if Random() < exp(-delta / temp):
-                accept = True
-                UpdateScores(destroy_op, repair_op, score=+1)
-                
-            if accept:
-                current = neighbor
-                if Fitness(current) < Fitness(best): best = current
-                
-        if total_iterations % 100 == 0:
-            destroy_weights, repair_weights = UpdateWeights(scores)
-            
-        temp = temp * 0.99
+    // 2.1 Iterations at current temperature
+    FOR Iteration from 1 to ITERATIONS_PER_TEMP DO:
         
-    return best
+        // 2.1.1 Adaptive Operator Selection
+        Select destroy_op based on destroy_weights
+        Select repair_op based on repair_weights
+        
+        // 2.1.2 Neighborhood Move (Destroy & Repair)
+        Apply destroy_op then repair_op to current_route to create neighbor
+        
+        // 2.1.3 Evaluation
+        Calculate delta = Fitness(neighbor) - Fitness(current_route)
+        
+        // 2.1.4 Acceptance & Scoring
+        Set accept = False
+        IF delta < 0 THEN
+            accept = True
+            Increase scores for destroy_op and repair_op (+3 or +2)
+        ELSE IF Random() < exp(-delta / Temp) THEN
+            accept = True
+            Increase scores for destroy_op and repair_op (+1)
+        END IF
+        
+        // 2.1.5 Update Route
+        IF accept is True THEN
+            current_route = neighbor
+            IF Fitness(current_route) < Fitness(best_route) THEN
+                best_route = current_route
+            END IF
+        END IF
+        
+        Total_Iterations = Total_Iterations + 1
+    END FOR
+    
+    // 2.2 Adaptive Weights Update
+    IF Total_Iterations is multiple of 100 THEN
+        Update destroy_weights and repair_weights based on scores
+    END IF
+    
+    // 2.3 Cooling Schedule
+    Temp = Temp * COOLING_RATE
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route
 ```
 
 ---
@@ -471,41 +454,56 @@ function SA_ALNS_Optimize():
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> Phase1["Phase 1: Run SM Optimizer"]
-    Phase1 --> Phase2Init["Init ALNS Loop with SM Route"]
-    Phase2Init --> LoopALNS{"Iter < 100?"}
+    Start(("Start")) --> Phase1["1. Phase 1: Run SM Optimizer"]
+    Phase1 --> Phase2Init["1.1 Init ALNS Loop with SM Route"]
+    Phase2Init --> LoopALNS{"2. Iter < ALNS_ITERATIONS?"}
     
-    LoopALNS -- Yes --> SelectOps["Select Random Destroy & Repair Ops"]
-    SelectOps --> ApplyOps["Destroy -> Repair"]
-    ApplyOps --> Eval{"Fitness < Current?"}
+    LoopALNS -- Yes --> SelectOps["2.1 Select Random Destroy & Repair Ops"]
+    SelectOps --> ApplyOps["2.2 Destroy -> Repair"]
+    ApplyOps --> Eval{"2.3 Fitness < Current?"}
     
-    Eval -- Yes --> Accept["Accept & Update Best"]
-    Eval -- No --> Reject["Reject"]
+    Eval -- Yes --> Accept["2.4 Accept & Update Best"]
+    Eval -- No --> Reject["2.5 Reject"]
     
     Accept --> LoopALNS
     Reject --> LoopALNS
     
-    LoopALNS -- No --> End(("End: Return Best"))
+    LoopALNS -- No --> End(("3. End: Return Best"))
 ```
 
 **Pseudocode:**
 ```text
-function SM_ALNS_Optimize():
-    current = SM_Optimize()  // Generates high-quality starting point
-    best = current
+Input:
+  - ALNS_ITERATIONS (e.g., 100)
+  - N_REMOVE (e.g., 3)
+
+// 1. Initialization (Phase 1: Construction)
+Create initial current_route = Run SM_Optimize() to generate high-quality base
+best_route = current_route
+
+// 2. Refinement Loop (Phase 2: ALNS)
+FOR Iteration from 1 to ALNS_ITERATIONS DO:
     
-    for iter from 1 to 100:
-        destroy_op = Random(Random, Worst, Shaw)
-        repair_op = Random(Greedy, Random, Regret)
+    // 2.1 Operator Selection
+    Select random destroy_op (Random, Worst, Shaw)
+    Select random repair_op (Greedy, Random, Regret)
+    
+    // 2.2 Neighborhood Move (Destroy & Repair)
+    Apply destroy_op then repair_op to current_route to create neighbor
+    
+    // 2.3 Evaluation & Acceptance
+    IF Fitness(neighbor) < Fitness(current_route) THEN
+        current_route = neighbor
         
-        neighbor = repair_op(destroy_op(current))
-        
-        if Fitness(neighbor) < Fitness(current):
-            current = neighbor
-            if Fitness(current) < Fitness(best):
-                best = current
-                
-    return best
+        // 2.4 Update Best Solution
+        IF Fitness(current_route) < Fitness(best_route) THEN
+            best_route = current_route
+        END IF
+    END IF
+END FOR
+
+// 3. Return Best Solution
+RETURN best_route
 ```
 
 ---
@@ -521,72 +519,80 @@ function SM_ALNS_Optimize():
 **Flowchart:**
 ```mermaid
 graph TD
-    Start(("Start")) --> InitPop["Phase 1: Init Pop (10% SM, 90% Random)"]
-    InitPop --> EvalPop["Evaluate (Dist, CO2, Rating)"]
-    EvalPop --> LoopGen{"Gen < Max?"}
+    Start(("Start")) --> InitPop["1. Phase 1: Init Pop (SM_SEED_RATIO SM, (1-SM_SEED_RATIO) Random)"]
+    InitPop --> EvalPop["1.1 Evaluate (Dist, CO2, Rating)"]
+    EvalPop --> LoopGen{"2. Gen < Max?"}
     
-    LoopGen -- Yes --> Rank["Phase 2: NSGA-II Fast Pareto Ranking"]
-    Rank --> Crowd["Calculate Crowding Distance"]
+    LoopGen -- Yes --> Rank["2.1 Phase 2: NSGA-II Fast Pareto Ranking"]
+    Rank --> Crowd["2.2 Calculate Crowding Distance"]
     
-    Crowd --> Elitism["Phase 3: Strict Elitism (Copy Top N Rank 1)"]
-    Elitism --> LoopPop{"New Pop < Pop Size?"}
+    Crowd --> Elitism["2.3 Phase 3: Strict Elitism (Copy Top N_ELITES Rank 1)"]
+    Elitism --> LoopPop{"2.4 New Pop < Pop Size?"}
     
-    LoopPop -- Yes --> Selection["Tournament Selection (Rank & Crowd)"]
-    Selection --> Crossover["Order Crossover"]
-    Crossover --> ProbALNS{"Rand < ALNS Rate?"}
+    LoopPop -- Yes --> Selection["2.4.1 Tournament Selection (Rank & Crowd)"]
+    Selection --> Crossover["2.4.2 Order Crossover"]
+    Crossover --> ProbALNS{"2.4.3 Rand < ALNS_MUTATION_RATE?"}
     
-    ProbALNS -- Yes --> ALNSChild["Phase 5: Apply ALNS to Child"]
-    ProbALNS -- No --> MutateChild["Standard Random Mutation"]
-    ALNSChild --> AddChild["Add Child to New Pop"]
+    ProbALNS -- Yes --> ALNSChild["2.4.4 Phase 5: Apply ALNS to Child"]
+    ProbALNS -- No --> MutateChild["2.4.5 Standard Random Mutation"]
+    ALNSChild --> AddChild["2.4.6 Add Child to New Pop"]
     MutateChild --> AddChild
     AddChild --> LoopPop
     
-    LoopPop -- No --> Merge["Merge Parent + Child"]
-    Merge --> KeepTop["Keep Top N via NSGA-II Elitism"]
+    LoopPop -- No --> Merge["2.5 Merge Parent + Child"]
+    Merge --> KeepTop["2.6 Keep Top N via NSGA-II Elitism"]
     KeepTop --> LoopGen
     
-    LoopGen -- No --> End(("End: Return Best Scalar from 1st Front"))
+    LoopGen -- No --> End(("3. End: Return Best Scalar from 1st Front"))
 ```
 
 **Pseudocode:**
 ```text
+Input:
+  - POPULATION_SIZE (e.g., 100)
+  - MAX_GENERATIONS (e.g., 200)
+  - ALNS_MUTATION_RATE (e.g., 0.2)
+  - STANDARD_MUTATION_RATE (e.g., 0.1)
+  - N_ELITES (e.g., 5)
+  - SM_SEED_RATIO (e.g., 0.2)
+
 // 1. Initialization (Phase 1: Hybrid Seed)
 Create empty population P
-P_SM = Generate routes using SM_Optimize() (10% of Pop size)
-P_Random = GenerateRandomPopulation(90% of Pop size)
+P_SM = Generate routes using SM_Optimize() (SM_SEED_RATIO of Pop size)
+P_Random = GenerateRandomPopulation((1-SM_SEED_RATIO) of Pop size)
 P = P_SM ∪ P_Random
 Evaluate multiple objectives for each route in P (F1: Dist, F2: CO2, F3: -Rating)
 
 Generation = 1
 
 // 2. Evolution Loop (Phase 2: NSGA-II Backbone)
-WHILE Generation <= Max_Generations DO:
+WHILE Generation <= MAX_GENERATIONS DO:
     
     Create new_population P_child
     
-    // a. Strict Elitism
+    // 2.1 Strict Elitism
     Assign Pareto Ranks using Non-dominated Sorting on P
     Copy Top N Elites directly from P to P_child
     
-    // b. Reproduction
+    // 2.2 Reproduction
     WHILE size(P_child) < Pop_Size DO:
-        // Selection based on Pareto Rank and Crowding Distance
+        // 2.2.1 Selection based on Pareto Rank and Crowding Distance
         Select parents P1, P2 using Binary Tournament
         Child = Order_Crossover(P1, P2)
         
-        // c. Memetic Local Search (Phase 3: ALNS Injection)
-        IF Random() < ALNS_Mutation_Rate THEN
+        // 2.2.2 Memetic Local Search (Phase 3: ALNS Injection)
+        IF Random() < ALNS_MUTATION_RATE THEN
             destroy_op = Select Random Destroy
             repair_op = Select Random Repair
             Child = repair_op(destroy_op(Child))
-        ELSE IF Random() < Standard_Mutation_Rate THEN
+        ELSE IF Random() < STANDARD_MUTATION_RATE THEN
             Child = Mutate_Swap_or_Reverse(Child)
         END IF
         
         Add Child to P_child
     END WHILE
     
-    // d. Environmental Selection
+    // 2.3 Environmental Selection
     P_combined = P ∪ P_child
     Assign Pareto Ranks on P_combined
     Calculate Crowding Distance
@@ -601,7 +607,97 @@ RETURN best_balanced_route_from(Pareto_Front(P))
 
 ---
 
-## 8. ALNS Operators Reference
+## 8. Adaptive Large Neighborhood Search (ALNS)
+
+**Workflow:**
+1. **Initialize:** Receive an initial route and set a starting temperature.
+2. **Iterate per Temp:** Loop while the current temperature is above the minimum temperature.
+3. **Inner Iterations:** For a fixed number of iterations at the current temperature:
+   - **Select Operators:** Randomly select one Destroy operator and one Repair operator.
+   - **Neighborhood Move:** Apply the Destroy operator to remove $N$ places, then apply the Repair operator to reinsert them.
+   - **Evaluation:** Calculate the fitness change (Delta).
+   - **Acceptance:** If the new route is better, accept it. If worse, accept it probabilistically based on the SA criterion.
+4. **Cooling:** Multiply the temperature by a cooling rate.
+5. **Result:** Return the best route found when the minimum temperature is reached.
+
+**Flowchart:**
+```mermaid
+graph TD
+    Start(("Start")) --> Init["1. Init Route, Temp=INITIAL_TEMP"]
+    Init --> LoopTemp{"2. Temp > MIN_TEMP?"}
+    
+    LoopTemp -- Yes --> LoopIter{"2.1 Iter < ITERATIONS_PER_TEMP?"}
+    
+    LoopIter -- Yes --> SelectOps["2.1.1 Select Destroy & Repair Ops"]
+    SelectOps --> ApplyOps["2.1.2 Apply Destroy -> Repair"]
+    ApplyOps --> EvalDelta["2.1.3 Delta = Neighbor - Current"]
+    EvalDelta --> AcceptRules{"2.1.4 Delta < 0 or Rand() < exp(-Delta/Temp)?"}
+    
+    AcceptRules -- Yes --> Accept["2.1.5 Accept & Update Current"]
+    AcceptRules -- No --> Reject["2.1.6 Reject & Revert"]
+    
+    Accept --> UpdateBest["2.1.7 Update Global Best"]
+    UpdateBest --> LoopIter
+    Reject --> LoopIter
+    
+    LoopIter -- No --> Cool["2.2 Temp = Temp * COOLING_RATE"]
+    Cool --> LoopTemp
+    
+    LoopTemp -- No --> End(("3. End: Return Best"))
+```
+
+**Pseudocode:**
+```text
+Input:
+  - INITIAL_TEMP (e.g., 100.0)
+  - MIN_TEMP (e.g., 0.01)
+  - COOLING_RATE (e.g., 0.995)
+  - ITERATIONS_PER_TEMP (e.g., 50)
+  - N_REMOVE (e.g., 2)
+
+// 1. Initialization
+current_route = GetInitialRoute()
+best_route = current_route
+Set initial temperature Temp = INITIAL_TEMP
+
+// 2. Annealing & ALNS Loop
+WHILE Temp > MIN_TEMP DO:
+    
+    // 2.1 Inner Iterations
+    FOR Iteration from 1 to ITERATIONS_PER_TEMP DO:
+        
+        // 2.1.1 Operator Selection
+        Select random destroy_op
+        Select random repair_op
+        
+        // 2.1.2 Neighborhood Move (Destroy & Repair)
+        neighbor = repair_op(destroy_op(current_route, N_REMOVE))
+        
+        // 2.1.3 Evaluation
+        Calculate delta = Fitness(neighbor) - Fitness(current_route)
+        
+        // 2.1.4 Acceptance Criterion (SA)
+        IF delta < 0 OR Random() < exp(-delta / Temp) THEN
+            current_route = neighbor
+            
+            // 2.1.5 Update Best Solution
+            IF Fitness(current_route) < Fitness(best_route) THEN
+                best_route = current_route
+            END IF
+        END IF
+    END FOR
+    
+    // 2.2 Cooling Schedule
+    Temp = Temp * COOLING_RATE
+END WHILE
+
+// 3. Return Best Solution
+RETURN best_route
+```
+
+---
+
+## 9. ALNS Operators Reference
 
 ### Destroy Operators
 - **Random Removal (`random_removal`):** Randomly selects $N$ places and removes them from the route. Promotes broad exploration.

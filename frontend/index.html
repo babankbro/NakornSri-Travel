@@ -21,6 +21,9 @@
         .fade-in { animation: fadeIn 0.3s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .day-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .scenario-card { transition: all 0.3s; border: 1px solid #e5e7eb; }
+        .scenario-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #3B82F6; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -41,17 +44,20 @@
 
     <div class="max-w-7xl mx-auto px-4 py-6">
         <!-- Tabs -->
-        <div class="flex gap-2 mb-6">
-            <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition" onclick="switchTab('optimize')">
+        <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+            <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap" onclick="switchTab('optimize')">
                 <i class="fas fa-cogs mr-1"></i> คำนวณเส้นทาง
             </button>
-            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('results')">
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition whitespace-nowrap" onclick="switchTab('scenarios')">
+                <i class="fas fa-tasks mr-1"></i> แดชบอร์ดสถานการณ์
+            </button>
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition whitespace-nowrap" onclick="switchTab('results')">
                 <i class="fas fa-list mr-1"></i> ผลลัพธ์ย้อนหลัง
             </button>
-            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('compare')">
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition whitespace-nowrap" onclick="switchTab('compare')">
                 <i class="fas fa-chart-bar mr-1"></i> เปรียบเทียบวิธี
             </button>
-            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition" onclick="switchTab('import')">
+            <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 transition whitespace-nowrap" onclick="switchTab('import')">
                 <i class="fas fa-upload mr-1"></i> นำเข้าข้อมูล
             </button>
         </div>
@@ -60,7 +66,7 @@
         <div id="tab-optimize" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Config Panel -->
-                <div class="card p-6 fade-in">
+                <div class="card p-6 fade-in h-fit">
                     <h2 class="font-bold text-gray-800 mb-4"><i class="fas fa-sliders-h mr-2 text-blue-500"></i>เงื่อนไขการเดินทาง</h2>
                     <div class="space-y-4">
                         <div>
@@ -74,12 +80,14 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">อัลกอริทึม</label>
                             <select id="algorithm" class="w-full border rounded-lg px-3 py-2 text-sm">
+                                <option value="ga_alns">GA + ALNS (แนะนำ)</option>
+                                <option value="moma">MOMA (Multi-Objective)</option>
                                 <option value="sm">SM (Saving Method)</option>
                                 <option value="ga">GA (Genetic Algorithm)</option>
                                 <option value="sa">SA (Simulated Annealing)</option>
                                 <option value="sm_alns">SM + ALNS</option>
                                 <option value="sa_alns">SA + ALNS</option>
-                                <option value="ga_alns">GA + ALNS</option>
+                                <option value="alns">ALNS (Pure)</option>
                             </select>
                         </div>
                         <div>
@@ -94,7 +102,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">สถานที่ต่อวัน (ขั้นต่ำ - สูงสุด)</label>
                             <div class="flex gap-2">
-                                <input type="number" id="minPlaces" value="3" min="1" max="10" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="ขั้นต่ำ">
+                                <input type="number" id="minPlaces" value="5" min="1" max="10" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="ขั้นต่ำ">
                                 <span class="flex items-center text-gray-500">-</span>
                                 <input type="number" id="maxPlaces" value="7" min="1" max="10" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="สูงสุด">
                             </div>
@@ -180,6 +188,22 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Scenarios Tab -->
+        <div id="tab-scenarios" class="tab-content hidden">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">แดชบอร์ดสถานการณ์ (Scenario Dashboard)</h2>
+                    <p class="text-sm text-gray-500">รันและเปรียบเทียบผลลัพธ์จาก 7 รูปแบบการทดสอบตามแผนงาน (GA+ALNS)</p>
+                </div>
+                <button id="btnRunAllScenarios" onclick="runAllScenarios()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition shadow-lg flex items-center gap-2">
+                    <i class="fas fa-play-circle"></i> รันทุกสถานการณ์
+                </button>
+            </div>
+            <div id="scenariosGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Scenario cards will be rendered here via JS -->
             </div>
         </div>
 

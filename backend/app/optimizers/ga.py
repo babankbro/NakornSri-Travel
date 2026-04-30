@@ -56,17 +56,23 @@ class GAOptimizer(BaseOptimizer):
         child = [None] * size
         child[start:end + 1] = parent1[start:end + 1]
 
-        fill_values = [g for g in parent2 if g not in child[start:end + 1]]
+        # Get values from parent2 that are not in the segment
+        segment_set = set(parent1[start:end + 1])
+        fill_values = [g for g in parent2 if g not in segment_set]
+        
         fill_idx = 0
         for i in range(size):
             if child[i] is None and fill_idx < len(fill_values):
                 child[i] = fill_values[fill_idx]
                 fill_idx += 1
 
-        # If parent2 didn't have enough values, fill with random available places
+        # CRITICAL: If child still has None, it means parent2 didn't have enough unique values
+        # Fill with random available places from the global pool to maintain size
         if None in child:
             candidates = self._get_candidate_places()
-            pool = [p.id for p in candidates if p.id not in child]
+            # We don't know which IDs are "seen" globally here, but we can at least avoid
+            # duplicates within this specific day. The cross-day deduplication happens later.
+            pool = [p.id for p in candidates if p.id not in segment_set and p.id not in fill_values]
             self.rng.shuffle(pool)
             pool_idx = 0
             for i in range(size):
@@ -74,8 +80,9 @@ class GAOptimizer(BaseOptimizer):
                     child[i] = pool[pool_idx]
                     pool_idx += 1
 
-        child = [x for x in child if x is not None]
-        return child
+        # Final safety filter
+        final_child = [x for x in child if x is not None]
+        return final_child
 
     def _crossover(self, p1: Route, p2: Route) -> Route:
         if self.rng.random() > self.crossover_rate:

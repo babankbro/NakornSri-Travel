@@ -50,7 +50,7 @@ class OptimizeRequest(BaseModel):
     weight_distance: float = Field(default=0.4, ge=0, le=1)
     weight_co2: float = Field(default=0.3, ge=0, le=1)
     weight_rating: float = Field(default=0.3, ge=0, le=1)
-    min_places_per_day: int = Field(default=3, ge=1, le=10)
+    min_places_per_day: int = Field(default=5, ge=1, le=10)
     max_places_per_day: int = Field(default=7, ge=1, le=10)
     start_place_type: str = "airport"
     end_place_type: str = "airport"

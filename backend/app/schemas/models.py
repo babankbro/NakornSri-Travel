@@ -10,6 +10,8 @@ class PlaceType(str, Enum):
     CULTURE = "Culture"
     OTOP = "OTOP"
     FOOD = "Food"
+    CAFE = "Café"
+    FOOD_CAFE = "Food and Café"
 
 
 class AlgorithmType(str, Enum):

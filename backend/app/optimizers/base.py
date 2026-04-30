@@ -176,19 +176,27 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+                if pid in place_map and place_map[pid].type in (PlaceType.FOOD, PlaceType.FOOD_CAFE)
             )
             if food_count == 0:
                 penalty += 50.0
 
         for day_eval in ev["days"]:
             for sched in day_eval["schedule"]:
-                if sched["type"] == PlaceType.FOOD.value:
+                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value):
                     arrival = sched["arrival_min"]
                     if arrival < 660:
                         penalty += ((660 - arrival) / 10.0) * 2.0
                     elif arrival > 780:
                         penalty += ((arrival - 780) / 10.0) * 2.0
+
+        # Bonus for cafe lifestyle: reward visiting CAFE / FOOD_CAFE places
+        if getattr(self.request, 'lifestyle_type', None) and self.request.lifestyle_type.value == "cafe":
+            cafe_count = sum(
+                1 for pid in all_place_ids
+                if pid in place_map and place_map[pid].type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)
+            )
+            penalty -= 0.05 * cafe_count  # each cafe visit reduces cost (bonus)
 
         return cost + penalty
 
@@ -216,14 +224,14 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+                if pid in place_map and place_map[pid].type in (PlaceType.FOOD, PlaceType.FOOD_CAFE)
             )
             if food_count == 0:
                 violations.append(f"Day {day_idx}: missing Food visit (need at least 1)")
 
         for day_idx, day_eval in enumerate(ev["days"], 1):
             for sched in day_eval["schedule"]:
-                if sched["type"] == PlaceType.FOOD.value:
+                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value):
                     arrival = sched["arrival_min"]
                     if arrival < 660 or arrival > 780:
                         violations.append(f"Day {day_idx}: Food arrival outside 11:00-13:00 window")
@@ -247,8 +255,8 @@ class BaseOptimizer(ABC):
             others = [p for p in tourist if p.type != PlaceType.CULTURE]
             tourist = preferred + others
         elif self.request.lifestyle_type.value == "cafe":
-            preferred = [p for p in tourist if p.type == PlaceType.TRAVEL]
-            others = [p for p in tourist if p.type != PlaceType.TRAVEL]
+            preferred = [p for p in tourist if p.type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)]
+            others = [p for p in tourist if p.type not in (PlaceType.CAFE, PlaceType.FOOD_CAFE)]
             tourist = preferred + others
         return tourist
 
@@ -262,7 +270,8 @@ class BaseOptimizer(ABC):
         min_per_day = self.request.min_places_per_day
         max_per_day = self.request.max_places_per_day
 
-        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
+        # CAFE = tourist slot; FOOD_CAFE = food slot (mandatory lunch) but also cafe
+        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD, PlaceType.FOOD_CAFE)]
 
         def pick_non_otop_food(n: int, exclude: set) -> List[Place]:
             pool = [p for p in non_otop_food if p.id not in exclude]
@@ -277,7 +286,9 @@ class BaseOptimizer(ABC):
         otop_pool = list(otops)
         rng.shuffle(otop_pool)
 
-        food_pool = list(foods)
+        # FOOD_CAFE counts as food for the mandatory lunch slot
+        food_cafe = [p for p in all_candidates if p.type == PlaceType.FOOD_CAFE]
+        food_pool = list(foods) + food_cafe
         rng.shuffle(food_pool)
 
         used_ids: set = set()

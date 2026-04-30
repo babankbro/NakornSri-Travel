@@ -113,39 +113,68 @@ class GAOptimizer(BaseOptimizer):
                         seen.add(rep)
             child_day_places[d] = new_day
 
+        # FOOD_CAFE counts as FOOD for constraint purposes
+        FOOD_TYPES = (PlaceType.FOOD, PlaceType.FOOD_CAFE)
+        MANDATORY_TYPES = (PlaceType.OTOP, PlaceType.FOOD, PlaceType.FOOD_CAFE)
+
         # Repair OTOP and FOOD constraints (exactly 1 per day)
         for d in range(num_days):
             day_places = child_day_places[d]
-            for req_type in (PlaceType.OTOP, PlaceType.FOOD):
-                type_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) == req_type]
-                
-                while len(type_pids) > 1:
-                    pid_to_remove = type_pids.pop()
-                    candidates = self._get_candidate_places()
-                    replacements = [p.id for p in candidates if p.id not in seen and p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
-                    if replacements:
-                        rep = replacements[self.rng.integers(0, len(replacements))]
-                        idx = day_places.index(pid_to_remove)
-                        day_places[idx] = rep
-                        seen.remove(pid_to_remove)
-                        seen.add(rep)
-                    else:
-                        day_places.remove(pid_to_remove)
-                        seen.remove(pid_to_remove)
+            place_map = {p.id: p for p in self.data.places}
 
-                if len(type_pids) == 0:
-                    candidates = self._get_candidate_places()
-                    replacements = [p.id for p in candidates if p.id not in seen and p.type == req_type]
-                    if replacements:
-                        rep = replacements[self.rng.integers(0, len(replacements))]
-                        gen_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) not in (PlaceType.OTOP, PlaceType.FOOD)]
-                        if gen_pids:
-                            idx = day_places.index(gen_pids[0])
-                            day_places[idx] = rep
-                            seen.remove(gen_pids[0])
-                        else:
-                            day_places.append(rep)
-                        seen.add(rep)
+            # OTOP: exactly 1
+            otop_pids = [pid for pid in day_places if place_map.get(pid) and place_map[pid].type == PlaceType.OTOP]
+            while len(otop_pids) > 1:
+                pid_to_remove = otop_pids.pop()
+                candidates = self._get_candidate_places()
+                replacements = [p.id for p in candidates if p.id not in seen and p.type not in MANDATORY_TYPES]
+                if replacements:
+                    rep = replacements[self.rng.integers(0, len(replacements))]
+                    day_places[day_places.index(pid_to_remove)] = rep
+                    seen.discard(pid_to_remove)
+                    seen.add(rep)
+                else:
+                    day_places.remove(pid_to_remove)
+                    seen.discard(pid_to_remove)
+            if len(otop_pids) == 0:
+                candidates = self._get_candidate_places()
+                replacements = [p.id for p in candidates if p.id not in seen and p.type == PlaceType.OTOP]
+                if replacements:
+                    rep = replacements[self.rng.integers(0, len(replacements))]
+                    non_mandatory = [pid for pid in day_places if place_map.get(pid) and place_map[pid].type not in MANDATORY_TYPES]
+                    if non_mandatory:
+                        day_places[day_places.index(non_mandatory[0])] = rep
+                        seen.discard(non_mandatory[0])
+                    else:
+                        day_places.append(rep)
+                    seen.add(rep)
+
+            # FOOD (including FOOD_CAFE): at least 1
+            food_pids = [pid for pid in day_places if place_map.get(pid) and place_map[pid].type in FOOD_TYPES]
+            while len(food_pids) > 1:
+                pid_to_remove = food_pids.pop()
+                candidates = self._get_candidate_places()
+                replacements = [p.id for p in candidates if p.id not in seen and p.type not in MANDATORY_TYPES]
+                if replacements:
+                    rep = replacements[self.rng.integers(0, len(replacements))]
+                    day_places[day_places.index(pid_to_remove)] = rep
+                    seen.discard(pid_to_remove)
+                    seen.add(rep)
+                else:
+                    day_places.remove(pid_to_remove)
+                    seen.discard(pid_to_remove)
+            if len(food_pids) == 0:
+                candidates = self._get_candidate_places()
+                replacements = [p.id for p in candidates if p.id not in seen and p.type in FOOD_TYPES]
+                if replacements:
+                    rep = replacements[self.rng.integers(0, len(replacements))]
+                    non_mandatory = [pid for pid in day_places if place_map.get(pid) and place_map[pid].type not in MANDATORY_TYPES]
+                    if non_mandatory:
+                        day_places[day_places.index(non_mandatory[0])] = rep
+                        seen.discard(non_mandatory[0])
+                    else:
+                        day_places.append(rep)
+                    seen.add(rep)
 
         # Hotel selection: randomly pick from either parent
         child_hotel_ids = []
@@ -194,14 +223,19 @@ class GAOptimizer(BaseOptimizer):
                     # Find a place in d2 with a compatible type to swap
                     # If it's FOOD or OTOP, must swap with FOOD or OTOP respectively to keep counts 1 per day.
                     # If Travel/Culture, swap with any non-Food/non-OTOP
+                    FOOD_TYPES = (PlaceType.FOOD, PlaceType.FOOD_CAFE)
+                    PROTECTED = (PlaceType.FOOD, PlaceType.FOOD_CAFE, PlaceType.OTOP)
                     valid_i2s = []
                     for i2, pid2 in enumerate(route.day_places[d2]):
                         p2_type = next(p.type for p in self.data.places if p.id == pid2)
-                        if p1_type in (PlaceType.FOOD, PlaceType.OTOP):
-                            if p2_type == p1_type:
+                        if p1_type == PlaceType.OTOP:
+                            if p2_type == PlaceType.OTOP:
+                                valid_i2s.append(i2)
+                        elif p1_type in FOOD_TYPES:
+                            if p2_type in FOOD_TYPES:
                                 valid_i2s.append(i2)
                         else:
-                            if p2_type not in (PlaceType.FOOD, PlaceType.OTOP):
+                            if p2_type not in PROTECTED:
                                 valid_i2s.append(i2)
                     
                     if valid_i2s:

@@ -142,9 +142,20 @@ class RouteEvaluator:
         w_c = self.request.weight_co2
         w_r = getattr(self.request, 'weight_rating', 0.0)
 
-        dist_norm = ev["total_distance_km"] / 400.0
-        co2_norm = ev["total_co2_kg"] / 150.0
+        num_data = len(route.day_places)
+        factor1 = 1
+        factor2 = 2
+        if num_data == 1:
+            factor1 = 2
+        if num_data == 3:
+            factor1 = 0.5
+            factor2 = 0.5
+        
+        dist_norm = ev["total_distance_km"] / (300.0 * factor1)
+        # TODO: add number of data to concern
+        co2_norm = ev["total_co2_kg"] / (200.0 * factor2)
 
+        # Calculate Collective Rating Benefit (Total Rating relative to Max Capacity)
         place_map = {p.id: p for p in self.data.places}
         all_place_ids = [pid for day in route.day_places for pid in day]
         ratings = [place_map[pid].rate for pid in all_place_ids if pid in place_map]

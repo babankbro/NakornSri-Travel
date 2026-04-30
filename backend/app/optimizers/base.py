@@ -142,53 +142,16 @@ class RouteEvaluator:
         w_c = self.request.weight_co2
         w_r = getattr(self.request, 'weight_rating', 0.0)
 
-        num_data = len(route.day_places)
-        factor1 = 1
-        factor2 = 2
-        if num_data == 1:
-            factor1 = 2
-        if num_data == 3:
-            factor2 = 0.5
-        
-        dist_norm = ev["total_distance_km"] / (300.0 * factor1)
-        # TODO: add number of data to concern
-        co2_norm = ev["total_co2_kg"] / (200.0*factor2)
+        dist_norm = ev["total_distance_km"] / 400.0
+        co2_norm = ev["total_co2_kg"] / 150.0
 
-        # Calculate Collective Rating Benefit (Total Rating relative to Max Capacity)
         place_map = {p.id: p for p in self.data.places}
         all_place_ids = [pid for day in route.day_places for pid in day]
         ratings = [place_map[pid].rate for pid in all_place_ids if pid in place_map]
-        
-        # Max possible rating sum for this trip duration
-        max_spots = self.request.trip_days * self.request.max_places_per_day
-        max_possible_sum = max_spots * 5.0
-        actual_sum = sum(ratings)
-        
-        # Rating cost decreases as actual_sum increases
-        rating_norm = 1.0 - (actual_sum / max_possible_sum) if max_possible_sum > 0 else 1.0
+        avg_rating = float(np.mean(ratings)) if ratings else 0.0
+        rating_norm = (5.0 - avg_rating) / 5.0
 
         cost = w_d * dist_norm + w_c * co2_norm + w_r * rating_norm
-
-        # Lifestyle reward: reduce cost when route contains matching place types
-        lifestyle = self.request.lifestyle_type.value
-        lifestyle_reward = 0.0
-        REWARD_PER_MATCH = 0.025  # each matching place reduces fitness by this amount
-        for pid in all_place_ids:
-            if pid not in place_map:
-                continue
-            p = place_map[pid]
-            if lifestyle == "culture" and p.type == PlaceType.CULTURE:
-                lifestyle_reward += REWARD_PER_MATCH
-            elif lifestyle == "cafe":
-                if p.is_cafe:
-                    lifestyle_reward += REWARD_PER_MATCH          # Café / Food and Café (full reward)
-                elif p.is_cafe_travel:
-                    lifestyle_reward += REWARD_PER_MATCH          # Travel place containing cafe (full reward)
-            elif lifestyle == "food" and (p.is_food or p.is_cafe):
-                # is_food covers: Food, Food and Café
-                # is_cafe covers: Café, Food and Café
-                lifestyle_reward += REWARD_PER_MATCH
-        cost = max(0.0, cost - lifestyle_reward)
 
         penalty = 0.0
         if not ev["feasible"]:
@@ -213,19 +176,27 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].is_food
+                if pid in place_map and place_map[pid].type == PlaceType.FOOD
             )
             if food_count == 0:
                 penalty += 50.0
 
         for day_eval in ev["days"]:
             for sched in day_eval["schedule"]:
-                if "Food" in sched["type"]:
+                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value):
                     arrival = sched["arrival_min"]
                     if arrival < 660:
                         penalty += ((660 - arrival) / 10.0) * 2.0
                     elif arrival > 780:
                         penalty += ((arrival - 780) / 10.0) * 2.0
+
+        # Bonus for cafe lifestyle: reward visiting CAFE / FOOD_CAFE places
+        if getattr(self.request, 'lifestyle_type', None) and self.request.lifestyle_type.value == "cafe":
+            cafe_count = sum(
+                1 for pid in all_place_ids
+                if pid in place_map and place_map[pid].type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)
+            )
+            penalty -= 0.05 * cafe_count  # each cafe visit reduces cost (bonus)
 
         return cost + penalty
 
@@ -253,14 +224,14 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].is_food
+                if pid in place_map and place_map[pid].type == PlaceType.FOOD
             )
             if food_count == 0:
                 violations.append(f"Day {day_idx}: missing Food visit (need at least 1)")
 
         for day_idx, day_eval in enumerate(ev["days"], 1):
             for sched in day_eval["schedule"]:
-                if "Food" in sched["type"]:
+                if sched["type"] == PlaceType.FOOD.value:
                     arrival = sched["arrival_min"]
                     if arrival < 660 or arrival > 780:
                         violations.append(f"Day {day_idx}: Food arrival outside 11:00-13:00 window")
@@ -277,66 +248,37 @@ class BaseOptimizer(ABC):
         self.best_fitness: float = float("inf")
         self.computation_time: float = 0.0
 
-    # Lifestyle weight multipliers applied to place.rate during sampling.
-    # Note: Travel places that are cafe_travel get extra handling in _lifestyle_rate_weight.
-    # food: Food (pure), Café, Food and Café all boosted
-    LIFESTYLE_RATE_BOOST = {
-        "culture": {PlaceType.CULTURE: 4.0},
-        "cafe":    {PlaceType.CAFE: 5.0, PlaceType.FOOD_CAFE: 5.0},
-        "food":    {PlaceType.FOOD: 4.0,  PlaceType.FOOD_CAFE: 2.0},
-    }
-
     def _get_candidate_places(self) -> List[Place]:
-        """Return tourist places sorted so preferred lifestyle types come first."""
         tourist = self.data.get_tourist_places()
-        lifestyle = self.request.lifestyle_type.value
-        boosts = self.LIFESTYLE_RATE_BOOST.get(lifestyle, {})
-        if boosts:
-            if lifestyle == "cafe":
-                # cafe: Café/Food and Café first, then cafe_travel Travel, then others
-                tourist = sorted(
-                    tourist,
-                    key=lambda p: (
-                        0 if p.type in boosts else (1 if p.is_cafe or p.is_cafe_travel else 2),
-                        -p.rate
-                    )
-                )
-            else:
-                tourist = sorted(
-                    tourist,
-                    key=lambda p: (0 if p.type in boosts else 1, -p.rate)
-                )
+        if self.request.lifestyle_type.value == "culture":
+            preferred = [p for p in tourist if p.type == PlaceType.CULTURE]
+            others = [p for p in tourist if p.type != PlaceType.CULTURE]
+            tourist = preferred + others
+        elif self.request.lifestyle_type.value == "cafe":
+            preferred = [p for p in tourist if p.type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)]
+            others = [p for p in tourist if p.type not in (PlaceType.CAFE, PlaceType.FOOD_CAFE)]
+            tourist = preferred + others
         return tourist
-
-    def _lifestyle_rate_weight(self, place) -> float:
-        """Return effective sampling weight for a place given the current lifestyle."""
-        lifestyle = self.request.lifestyle_type.value
-        boosts = self.LIFESTYLE_RATE_BOOST.get(lifestyle, {})
-        multiplier = boosts.get(place.type, 1.0)
-        # Travel places that contain a cafe inside get full cafe boost
-        if lifestyle == "cafe" and place.is_cafe_travel:
-            multiplier = 5.0
-        base = place.rate if place.rate > 0 else 0.1
-        return base * multiplier
 
     def _generate_random_route(self, rng: np.random.Generator) -> Route:
         all_candidates = self._get_candidate_places()
         hotels = self.data.get_hotels()
         otops = self.data.get_otop_places()
-        foods = [p for p in all_candidates if p.is_food]
+        foods = [p for p in all_candidates if p.type == PlaceType.FOOD]
         num_days = self.request.trip_days
 
         min_per_day = self.request.min_places_per_day
         max_per_day = self.request.max_places_per_day
 
-        non_otop_food = [p for p in all_candidates if (p.type != PlaceType.OTOP) or p.is_cafe]
+        # CAFE = tourist slot; FOOD_CAFE = food slot (mandatory lunch) but also cafe
+        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD, PlaceType.FOOD_CAFE)]
 
         def pick_non_otop_food(n: int, exclude: set) -> List[Place]:
             pool = [p for p in non_otop_food if p.id not in exclude]
             if not pool:
                 return []
-            weights = np.array([self._lifestyle_rate_weight(p) for p in pool])
-            probs = weights / weights.sum() if weights.sum() > 0 else np.ones(len(pool)) / len(pool)
+            rates = np.array([p.rate for p in pool])
+            probs = rates / rates.sum() if rates.sum() > 0 else np.ones(len(pool)) / len(pool)
             size = min(n, len(pool))
             idxs = rng.choice(len(pool), size=size, replace=False, p=probs)
             return [pool[i] for i in idxs]
@@ -344,7 +286,9 @@ class BaseOptimizer(ABC):
         otop_pool = list(otops)
         rng.shuffle(otop_pool)
 
-        food_pool = list(foods)
+        # FOOD_CAFE counts as food for the mandatory lunch slot
+        food_cafe = [p for p in all_candidates if p.type == PlaceType.FOOD_CAFE]
+        food_pool = list(foods) + food_cafe
         rng.shuffle(food_pool)
 
         used_ids: set = set()
@@ -394,4 +338,5 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def optimize(self) -> Route:
+        pass
         pass

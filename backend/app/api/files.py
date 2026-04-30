@@ -134,10 +134,10 @@ async def clear_google_cache():
 @router.post("/validate")
 async def validate_files():
     loader = get_data_loader()
-    if not data_loader.places:
-        csv_path = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
+    if not loader.places:
+        csv_path = os.path.join(DATA_DIR, "TravelInfo_v3.csv")
         if not os.path.exists(csv_path):
-            csv_path = os.path.join(INPUTS_DIR, "TravelInfo_v2.csv")
+            csv_path = os.path.join(INPUTS_DIR, "TravelInfo_v3.csv")
         if os.path.exists(csv_path):
             loader.load_places(csv_path)
 

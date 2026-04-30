@@ -373,7 +373,7 @@ class DataLoader:
         return self.get_places_by_type(PlaceType.HOTEL)
 
     def get_tourist_places(self) -> List[Place]:
-        return [p for p in self.places if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP, PlaceType.FOOD)]
+        return [p for p in self.places if p.is_tourist]
 
     def get_otop_places(self) -> List[Place]:
         return self.get_places_by_type(PlaceType.OTOP)

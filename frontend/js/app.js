@@ -4,11 +4,13 @@ let currentResult = null;
 
 const TYPE_COLORS = {
     Depot: '#6366F1', Hotel: '#F59E0B', Travel: '#10B981',
-    Culture: '#8B5CF6', OTOP: '#EF4444', Food: '#EC4899'
+    Culture: '#8B5CF6', OTOP: '#EF4444', Food: '#EC4899',
+    'Food and Café': '#F43F5E', 'Café': '#14B8A6'
 };
 const TYPE_ICONS = {
     Depot: 'fa-plane', Hotel: 'fa-bed', Travel: 'fa-camera',
-    Culture: 'fa-landmark', OTOP: 'fa-shopping-bag', Food: 'fa-utensils'
+    Culture: 'fa-landmark', OTOP: 'fa-shopping-bag', Food: 'fa-utensils',
+    'Food and Café': 'fa-coffee', 'Café': 'fa-mug-hot'
 };
 const DAY_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B'];
 
@@ -46,6 +48,7 @@ function createNumberedIcon(num, color) {
 async function checkDataStatus() {
     try {
         const res = await fetch(`${API}/api/v1/files/validate`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
         const data = await res.json();
         const el = document.getElementById('dataStatus');
         if (data.valid) {
@@ -55,12 +58,15 @@ async function checkDataStatus() {
         }
     } catch (e) {
         console.error('Status check failed:', e);
+        const el = document.getElementById('dataStatus');
+        el.innerHTML = `<i class="fas fa-circle text-red-500 text-xs"></i> Error connecting`;
     }
 }
 
 async function loadAllPoints() {
     try {
         const res = await fetch(`${API}/api/v1/map/points`);
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
         const data = await res.json();
         if (data.items) {
             data.items.forEach(p => {
@@ -70,6 +76,7 @@ async function loadAllPoints() {
             });
         }
         const legendRes = await fetch(`${API}/api/v1/map/legend`);
+        if (!legendRes.ok) throw new Error(`HTTP Error ${legendRes.status}`);
         const legendData = await legendRes.json();
         const bar = document.getElementById('legendBar');
         bar.innerHTML = legendData.items.map(l =>
@@ -78,6 +85,58 @@ async function loadAllPoints() {
     } catch (e) {
         console.error('Load points failed:', e);
     }
+}
+
+// ─── Lifestyle Info ───────────────────────────────────────────────────────
+
+const LIFESTYLE_INFO = {
+    all:     { title: 'ทั้งหมด — ไม่มีการให้รางวัลพิเศษ', color: 'bg-gray-50 border-gray-200 text-gray-600', tags: [], reward: '' },
+    culture: {
+        title: '🏛️ สายวัฒนธรรม — ได้ Bonus เมื่อแวะสถานที่วัฒนธรรม',
+        color: 'bg-purple-50 border-purple-200 text-purple-700',
+        tags: [{ label: 'Culture', color: 'bg-purple-100 text-purple-700', icon: 'fa-landmark' }],
+        reward: '★ ทุก Culture place ที่แวะ ลด fitness -0.05 (รางวัล)'
+    },
+    cafe: {
+        title: '☕ สายคาเฟ่ติดแกรม — ได้ Bonus เมื่อแวะคาเฟ่ / สถานที่ท่องเที่ยวที่มีคาเฟ่ใน',
+        color: 'bg-teal-50 border-teal-200 text-teal-700',
+        tags: [
+            { label: 'Café', color: 'bg-teal-100 text-teal-700', icon: 'fa-mug-hot' },
+            { label: 'Food and Café', color: 'bg-pink-100 text-pink-700', icon: 'fa-coffee' },
+            { label: 'Travel (Caféใน)', color: 'bg-green-100 text-green-700', icon: 'fa-camera' }
+        ],
+        reward: '★ Café / Food and Café / Travel ที่มีคาเฟ่ใน ลด fitness -0.05 เท่ากัน | น้ำหนักสุ่ม 5× ทั้งหมด'
+    },
+    food: {
+        title: '🍜 สายของอร่อย — ได้ Bonus เมื่อแวะร้านอาหาร/คาเฟ่',
+        color: 'bg-rose-50 border-rose-200 text-rose-700',
+        tags: [
+            { label: 'Food', color: 'bg-rose-100 text-rose-700', icon: 'fa-utensils' },
+            { label: 'Food and Café', color: 'bg-pink-100 text-pink-700', icon: 'fa-coffee' },
+            { label: 'Café', color: 'bg-teal-100 text-teal-700', icon: 'fa-mug-hot' }
+        ],
+        reward: '★ Food / Food and Café / Café ทุก place ที่แวะ ลด fitness -0.05 | น้ำหนักสุ่ม Food 4× / Café 3×'
+    },
+};
+
+function updateLifestyleInfo() {
+    const val = document.getElementById('lifestyle').value;
+    const info = LIFESTYLE_INFO[val];
+    const box = document.getElementById('lifestyleInfo');
+    const title = document.getElementById('lifestyleInfoTitle');
+    const tags = document.getElementById('lifestyleInfoTags');
+    const reward = document.getElementById('lifestyleInfoReward');
+    if (!info || val === 'all') {
+        box.classList.add('hidden');
+        return;
+    }
+    box.className = `mt-2 rounded-lg px-3 py-2 text-xs border ${info.color}`;
+    box.classList.remove('hidden');
+    title.textContent = info.title;
+    tags.innerHTML = info.tags.map(t =>
+        `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${t.color}"><i class="fas ${t.icon}"></i>${t.label}</span>`
+    ).join('');
+    reward.textContent = info.reward;
 }
 
 function switchTab(tabName) {
@@ -101,19 +160,27 @@ function switchTab(tabName) {
 // ─── Scenario Dashboard ────────────────────────────────────────────────────
 
 const SCENARIOS = [
-    { id: 'multi', name: '1. Multi-Objective (Balanced)', icon: 'fa-balance-scale', desc: 'สมดุลทุกด้าน (Balanced Weights)', lifestyle: 'all', wDist: 0.33, wCo2: 0.33, wRate: 0.34 },
-    { id: 'culture', name: '2. Culture Lifestyle', icon: 'fa-landmark', desc: 'สายวัฒนธรรม (Culture priority)', lifestyle: 'culture', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
-    { id: 'cafe', name: '3. Cafe Lifestyle', icon: 'fa-camera', desc: 'สายคาเฟ่/ถ่ายรูป (Travel priority)', lifestyle: 'cafe', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
-    { id: 'food', name: '4. Food Lifestyle', icon: 'fa-utensils', desc: 'สายของอร่อย (Food priority)', lifestyle: 'food', wDist: 0.4, wCo2: 0.3, wRate: 0.3 },
-    { id: 'dist', name: '5. Distance Domain', icon: 'fa-route', desc: 'เน้นระยะทางสั้นที่สุด', lifestyle: 'all', wDist: 0.8, wCo2: 0.1, wRate: 0.1 },
-    { id: 'co2', name: '6. CO2 Domain', icon: 'fa-leaf', desc: 'เน้นปล่อยคาร์บอนน้อยที่สุด', lifestyle: 'all', wDist: 0.1, wCo2: 0.8, wRate: 0.1 },
-    { id: 'rate', name: '7. Rating Domain', icon: 'fa-star', desc: 'เน้นความนิยมสูงสุด', lifestyle: 'all', wDist: 0.1, wCo2: 0.1, wRate: 0.8 },
+    { id: 'multi',   name: '1. Multi-Objective (Balanced)', icon: 'fa-balance-scale', desc: 'สมดุลทุกด้าน (Balanced Weights)',         lifestyle: 'all',     wDist: 0.33, wCo2: 0.33, wRate: 0.34,
+      rewardTags: [] },
+    { id: 'culture', name: '2. Culture Lifestyle',          icon: 'fa-landmark',     desc: 'สายวัฒนธรรม — Bonus: Culture places',    lifestyle: 'culture', wDist: 0.4,  wCo2: 0.3,  wRate: 0.3,
+      rewardTags: [{ label: 'Culture', color: 'bg-purple-100 text-purple-700', icon: 'fa-landmark' }] },
+    { id: 'cafe',    name: '3. Cafe Lifestyle',             icon: 'fa-mug-hot',      desc: 'สายคาเฟ่ — Bonus: Café, Food+Café, Travel', lifestyle: 'cafe',    wDist: 0.4,  wCo2: 0.3,  wRate: 0.3,
+      rewardTags: [{ label: 'Café', color: 'bg-teal-100 text-teal-700', icon: 'fa-mug-hot' }, { label: 'Food and Café', color: 'bg-pink-100 text-pink-700', icon: 'fa-coffee' }, { label: 'Travel (½)', color: 'bg-green-100 text-green-700', icon: 'fa-camera' }] },
+    { id: 'food',    name: '4. Food Lifestyle',             icon: 'fa-utensils',     desc: 'สายของอร่อย — Bonus: Food, Café types',  lifestyle: 'food',    wDist: 0.4,  wCo2: 0.3,  wRate: 0.3,
+      rewardTags: [{ label: 'Food', color: 'bg-rose-100 text-rose-700', icon: 'fa-utensils' }, { label: 'Café', color: 'bg-teal-100 text-teal-700', icon: 'fa-mug-hot' }] },
+    { id: 'dist',    name: '5. Distance Domain',            icon: 'fa-route',        desc: 'เน้นระยะทางสั้นที่สุด',                  lifestyle: 'all',     wDist: 0.8,  wCo2: 0.1,  wRate: 0.1,
+      rewardTags: [] },
+    { id: 'co2',     name: '6. CO2 Domain',                 icon: 'fa-leaf',         desc: 'เน้นปล่อยคาร์บอนน้อยที่สุด',            lifestyle: 'all',     wDist: 0.1,  wCo2: 0.8,  wRate: 0.1,
+      rewardTags: [] },
+    { id: 'rate',    name: '7. Rating Domain',              icon: 'fa-star',         desc: 'เน้นความนิยมสูงสุด',                     lifestyle: 'all',     wDist: 0.1,  wCo2: 0.1,  wRate: 0.8,
+      rewardTags: [] },
 ];
 
 let scenarioState = {}; // { id: { status: 'idle|running|done|error', result: {...} } }
 
 function renderScenarios() {
     const grid = document.getElementById('scenariosGrid');
+    if (!grid) return;
     grid.innerHTML = '';
 
     SCENARIOS.forEach(s => {
@@ -122,6 +189,10 @@ function renderScenarios() {
         const isDone = state.status === 'done';
         const res = state.result;
 
+        if (isDone && res) {
+            console.log(`Scenario ${s.id} summary:`, res.summary);
+        }
+
         const card = document.createElement('div');
         card.className = `card p-5 scenario-card fade-in flex flex-col h-full ${isRunning ? 'border-blue-400 bg-blue-50/30' : ''}`;
         
@@ -129,6 +200,22 @@ function renderScenarios() {
         if (isRunning) statusBadge = '<span class="flex items-center gap-1 text-blue-600 text-xs font-bold animate-pulse"><i class="fas fa-spinner fa-spin"></i> กำลังรัน...</span>';
         else if (isDone) statusBadge = '<span class="flex items-center gap-1 text-green-600 text-xs font-bold"><i class="fas fa-check-circle"></i> สำเร็จ</span>';
         else statusBadge = '<span class="flex items-center gap-1 text-gray-400 text-xs font-bold"><i class="status-dot bg-gray-300 mr-1"></i> พร้อมรัน</span>';
+
+        // Robust metric extraction
+        const summary = (res && res.summary) ? res.summary : {};
+        const d_dist = (summary.total_distance_km != null) ? summary.total_distance_km.toFixed(1) : '0.0';
+        const d_co2  = (summary.total_co2_kg != null) ? summary.total_co2_kg.toFixed(1) : '0.0';
+        const d_rate = (summary.average_rating != null) ? summary.average_rating.toFixed(1) : '0.0';
+        const d_score = (summary.total_rating_score != null) ? summary.total_rating_score.toFixed(0) : '0';
+        const d_max   = (summary.max_rating_score != null) ? summary.max_rating_score.toFixed(0) : '0';
+        const d_time  = (summary.total_time_min != null) ? summary.total_time_min.toFixed(0) : '0';
+        const d_spots = (res && res.days) ? res.days.reduce((acc, d) => acc + (d.places ? d.places.length : 0), 0) : 0;
+
+        const rewardTagsHtml = (s.rewardTags && s.rewardTags.length > 0)
+            ? s.rewardTags.map(t =>
+                `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${t.color}"><i class="fas ${t.icon}"></i>${t.label}</span>`
+              ).join('')
+            : '<span class="text-[9px] text-gray-300 italic">ไม่มี Bonus</span>';
 
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
@@ -139,38 +226,45 @@ function renderScenarios() {
             </div>
             
             <h3 class="font-bold text-gray-800 text-lg mb-1">${s.name}</h3>
-            <p class="text-xs text-gray-500 mb-4">${s.desc}</p>
+            <p class="text-xs text-gray-500 mb-2">${s.desc}</p>
+
+            <div class="flex flex-wrap gap-1 mb-1 items-center">
+                <span class="text-[9px] text-gray-400 font-semibold uppercase mr-1">🎁 Reward:</span>
+                ${rewardTagsHtml}
+            </div>
             
-            <div class="flex flex-wrap gap-1.5 mb-4">
+            <div class="flex flex-wrap gap-1.5 mb-3">
                 <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">Style: ${s.lifestyle}</span>
                 <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono">W: ${s.wDist}/${s.wCo2}/${s.wRate}</span>
             </div>
 
             <div class="mt-auto space-y-3">
                 ${isDone && res ? `
-                    <div class="grid grid-cols-4 gap-1 py-3 border-y border-gray-100">
-                        <div class="text-center">
-                            <div class="text-[10px] text-gray-400 uppercase">Dist</div>
-                            <div class="text-sm font-bold text-gray-700">${res.summary.total_distance_km.toFixed(1)}</div>
-                            <div class="text-[9px] text-gray-400">km</div>
+                    <div class="py-3 border-y border-gray-100">
+                        <div class="grid grid-cols-4 gap-1 mb-2">
+                            <div class="text-center">
+                                <div class="text-[8px] text-gray-400 uppercase font-bold">Distance</div>
+                                <div class="text-[11px] font-extrabold text-gray-700">${d_dist} <span class="text-[9px] font-normal text-gray-400">km</span></div>
+                            </div>
+                            <div class="text-center border-l border-gray-50">
+                                <div class="text-[8px] text-gray-400 uppercase font-bold">CO₂</div>
+                                <div class="text-[11px] font-extrabold text-gray-700">${d_co2} <span class="text-[9px] font-normal text-gray-400">kg</span></div>
+                            </div>
+                            <div class="text-center border-l border-gray-50">
+                                <div class="text-[8px] text-amber-500 uppercase font-bold">Rating</div>
+                                <div class="text-[11px] font-extrabold text-amber-600">${d_rate} <i class="fas fa-star text-[8px]"></i></div>
+                            </div>
+                            <div class="text-center border-l border-gray-50">
+                                <div class="text-[8px] text-blue-500 uppercase font-bold">Score</div>
+                                <div class="text-[11px] font-extrabold text-blue-600">${d_score} <span class="text-[8px] font-normal text-gray-400">/${d_max}</span></div>
+                            </div>
                         </div>
-                        <div class="text-center border-l border-gray-50">
-                            <div class="text-[10px] text-gray-400 uppercase">CO₂</div>
-                            <div class="text-sm font-bold text-gray-700">${res.summary.total_co2_kg.toFixed(2)}</div>
-                            <div class="text-[9px] text-gray-400">kg</div>
-                        </div>
-                        <div class="text-center border-l border-gray-50">
-                            <div class="text-[10px] text-gray-400 uppercase">Time</div>
-                            <div class="text-sm font-bold text-gray-700">${res.summary.total_time_min.toFixed(0)}</div>
-                            <div class="text-[9px] text-gray-400">min</div>
-                        </div>
-                        <div class="text-center border-l border-gray-50">
-                            <div class="text-[10px] text-gray-400 uppercase">Places</div>
-                            <div class="text-sm font-bold text-blue-600">${res.days.reduce((acc, d) => acc + d.places.length, 0)}</div>
-                            <div class="text-[9px] text-gray-400">total</div>
+                        <div class="flex justify-between items-center px-2 pt-1 border-t border-gray-50">
+                            <div class="text-[10px] text-gray-400 font-medium"><i class="far fa-clock mr-1"></i>${d_time} min</div>
+                            <div class="text-[10px] text-gray-400 font-bold"><i class="fas fa-map-marker-alt mr-1"></i>${d_spots} spots</div>
                         </div>
                     </div>
-                ` : '<div class="h-[65px] flex items-center justify-center border-y border-dashed border-gray-200 text-gray-300 text-xs italic font-mono">NO DATA</div>'}
+                ` : '<div class="h-[85px] flex items-center justify-center border-y border-dashed border-gray-200 text-gray-300 text-xs italic font-mono">NO DATA</div>'}
 
                 <div class="flex gap-2">
                     <button onclick="runScenario('${s.id}')" ${isRunning ? 'disabled' : ''} 
@@ -453,9 +547,17 @@ async function runOptimize() {
 function displayResult(result) {
     document.getElementById('summaryCards').classList.remove('hidden');
     document.getElementById('sumDist').textContent = result.summary.total_distance_km.toFixed(2);
-    document.getElementById('sumTime').textContent = result.summary.total_time_min.toFixed(1);
+    document.getElementById('sumTime').textContent = result.summary.total_time_min.toFixed(0);
     document.getElementById('sumCo2').textContent = result.summary.total_co2_kg.toFixed(3);
-    document.getElementById('sumHotel').textContent = result.summary.selected_hotel || '-';
+    const ratingEl = document.getElementById('sumRating');
+    if (ratingEl) {
+        ratingEl.textContent = (result.summary.average_rating != null) ? result.summary.average_rating.toFixed(2) : '-';
+    }
+    const totalRatingEl = document.getElementById('sumTotalRating');
+    if (totalRatingEl) {
+        totalRatingEl.textContent = (result.summary.total_rating_score != null) ? result.summary.total_rating_score.toFixed(1) : '-';
+    }
+    document.getElementById('sumHotel').textContent = result.summary.selected_hotel || 'N/A';
 
     markersLayer.clearLayers();
     polylinesLayer.clearLayers();
@@ -538,11 +640,23 @@ function displayResult(result) {
     });
 
     const exportHtml = `
-        <div class="card p-4 fade-in flex items-center gap-3">
-            <span class="text-sm text-gray-600 font-medium">ส่งออก:</span>
-            <button onclick="exportResult('json')" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-200">JSON</button>
-            <button onclick="exportResult('csv')" class="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-lg hover:bg-green-200">CSV</button>
-            <span class="text-xs text-gray-400 ml-auto">ID: ${result.result_id}</span>
+        <div class="card p-4 fade-in flex items-center justify-between gap-3 bg-gray-50 border border-gray-200">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-file-export text-gray-400"></i>
+                <span class="text-sm text-gray-700 font-bold uppercase tracking-wider">ส่งออกผลลัพธ์:</span>
+                <div class="flex gap-2">
+                    <button onclick="exportResult('json')" class="flex items-center gap-2 text-xs bg-white border border-blue-200 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors shadow-sm font-bold">
+                        <i class="fas fa-code"></i> JSON
+                    </button>
+                    <button onclick="exportResult('csv')" class="flex items-center gap-2 text-xs bg-white border border-green-200 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition-colors shadow-sm font-bold">
+                        <i class="fas fa-file-csv"></i> CSV (Excel)
+                    </button>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] text-gray-400 font-mono">RESULT ID</div>
+                <div class="text-[10px] text-gray-600 font-mono font-bold">${result.result_id}</div>
+            </div>
         </div>
     `;
     dayDetails.innerHTML += exportHtml;

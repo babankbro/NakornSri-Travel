@@ -100,6 +100,7 @@ class GAAlnsOptimizer(BaseOptimizer):
         print(f"[GA+ALNS] alns_iter={self.alns_iterations}  n_remove={self.n_remove}")
         print(f"{'='*60}")
 
+        best_avg_rate = 0.0
         for gen in range(self.generations):
             sorted_indices = np.argsort(fitnesses)
             new_population = []
@@ -131,6 +132,13 @@ class GAAlnsOptimizer(BaseOptimizer):
                 ev = self.evaluator.evaluate_route(population[best_idx])
                 avg_fit = sum(fitnesses) / len(fitnesses)
                 worst_fit = max(fitnesses)
+                
+                # Calculate avg rating for log
+                place_map = {p.id: p for p in self.data.places}
+                best_pids = [pid for day in population[best_idx].day_places for pid in day]
+                best_ratings = [place_map[pid].rate for pid in best_pids if pid in place_map]
+                best_avg_rate = np.mean(best_ratings) if best_ratings else 0.0
+
                 hotels_str = ",".join(self.best_route.hotel_ids) if self.best_route.hotel_ids else "none"
                 print(
                     f"[GA+ALNS] Gen {gen+1:>4}/{self.generations}"
@@ -140,9 +148,10 @@ class GAAlnsOptimizer(BaseOptimizer):
                     f"  dist={ev['total_distance_km']:.2f}km"
                     f"  time={ev['total_time_min']:.1f}min"
                     f"  co2={ev['total_co2_kg']:.3f}kg"
+                    f"  rate={best_avg_rate:.2f}"
                     f"  hotels={hotels_str}"
                 )
 
-        print(f"[GA+ALNS] DONE  best_fit={self.best_fitness:.4f}  time={time.time()-start_time:.2f}s\n")
+        print(f"[GA+ALNS] DONE  best_fit={self.best_fitness:.4f}  rate={best_avg_rate:.2f}  time={time.time()-start_time:.2f}s\n")
         self.computation_time = time.time() - start_time
         return self.best_route

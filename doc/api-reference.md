@@ -181,7 +181,7 @@ Run an optimization algorithm based on user constraints and save the generated r
 | `weight_distance` | float | `0.4` | 0-1 | Fitness distance weight |
 | `weight_co2` | float | `0.3` | 0-1 | Fitness CO2 weight |
 | `weight_rating` | float | `0.3` | 0-1 | Fitness rating weight |
-| `min_places_per_day` | integer | `3` | 1-10 | Minimum attractions per day |
+| `min_places_per_day` | integer | `5` | 1-10 | Minimum attractions per day |
 | `max_places_per_day` | integer | `7` | 1-10 | Max attractions per day |
 | `start_place_type` | string | `"airport"` | | Fixed starting point type |
 | `end_place_type` | string | `"airport"` | | Fixed ending point type |
@@ -196,6 +196,9 @@ Run an optimization algorithm based on user constraints and save the generated r
     "total_distance_km": 124.8,
     "total_time_min": 390.0,
     "total_co2_kg": 17.5,
+    "average_rating": 4.65,
+    "total_rating_score": 62.4,
+    "max_rating_score": 70.0,
     "selected_hotel": "ABC Resort",
     "algorithm": "ga",
     "lifestyle_type": "all"

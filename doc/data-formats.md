@@ -29,6 +29,9 @@ The primary input file containing all locations. Loaded on startup from `data/Tr
 | `Travel` | T | Tourist attraction | Visitable place (general tourism) |
 | `Culture` | C | Cultural site | Visitable place (cultural tourism) |
 | `OTOP` | O | Community product shop | Visitable place (must visit exactly 1 per day) |
+| `Food` | F | Restaurant | Satisfies lunch constraint |
+| `Café` | CF | Coffee shop | Prioritized in Cafe Lifestyle |
+| `Food and Café` | FC | Restaurant & Café | Satisfies lunch AND prioritized in Cafe Lifestyle |
 
 #### Example
 
@@ -37,7 +40,7 @@ Order,ID,Name,LAT,LNG,VisitTime,RATE,CO2,TYPE
 1,D1,สนามบินนครศรีธรรมราช,8.5396,99.9447,0,0,0,Depot
 2,H1,โรงแรม A,8.4321,99.9612,0,4.5,0.5,Hotel
 3,T1,วัดพระมหาธาตุ,8.4113,99.9668,45,4.8,1.2,Travel
-4,C1,หนังตะลุง,8.3987,99.9534,60,4.2,0.8,Culture
+4,FC1,คาเฟ่ริมน้ำ,8.3987,99.9534,60,4.2,0.8,Food and Café
 5,O1,ผ้าทอนาหมื่นศรี,8.3654,99.9123,45,3.9,0.6,OTOP
 ```
 
@@ -48,6 +51,7 @@ The system validates that the CSV contains:
 - At least **1 Hotel**
 - At least **1 tourist place** (Travel, Culture, or OTOP)
 - At least **1 OTOP place** (required by the constraint: 1 OTOP per day)
+- At least **1 food place** (Food or Food and Café)
 
 ---
 
@@ -56,11 +60,11 @@ The system validates that the CSV contains:
 Optional. Square matrix with place IDs as both row and column headers. Values represent driving distance in **kilometers**.
 
 ```csv
-,D1,H1,T1,C1,O1
+,D1,H1,T1,FC1,O1
 D1,0,12.5,8.3,15.2,22.1
 H1,12.5,0,5.1,9.8,18.4
 T1,8.3,5.1,0,7.2,14.6
-C1,15.2,9.8,7.2,0,11.3
+FC1,15.2,9.8,7.2,0,11.3
 O1,22.1,18.4,14.6,11.3,0
 ```
 
@@ -102,7 +106,7 @@ Each optimization run produces a JSON file saved to `storage/results/`.
     "weight_distance": 0.4,
     "weight_co2": 0.3,
     "weight_rating": 0.3,
-    "min_places_per_day": 3,
+    "min_places_per_day": 5,
     "max_places_per_day": 7,
     "start_place_type": "airport",
     "end_place_type": "airport"
@@ -111,6 +115,9 @@ Each optimization run produces a JSON file saved to `storage/results/`.
     "total_distance_km": 124.80,
     "total_time_min": 390.0,
     "total_co2_kg": 17.500,
+    "average_rating": 4.65,
+    "total_rating_score": 62.4,
+    "max_rating_score": 70.0,
     "selected_hotel": "โรงแรม A",
     "algorithm": "ga",
     "lifestyle_type": "all"
@@ -126,6 +133,7 @@ Each optimization run produces a JSON file saved to `storage/results/`.
           "type": "Travel",
           "lat": 8.4113,
           "lng": 99.9668,
+          "rate": 4.8,
           "arrival": "08:25",
           "departure": "09:10",
           "visit_time": 45,
@@ -184,7 +192,11 @@ Each optimization run produces a JSON file saved to `storage/results/`.
 | `created_at` | ISO 8601 timestamp |
 | `request` | Echo of the `OptimizeRequest` that produced this result |
 | `summary` | Aggregated metrics across all days |
+| `summary.average_rating` | Mean rating across all visited places |
+| `summary.total_rating_score` | Sum of ratings across all visited places |
+| `summary.max_rating_score` | Capacity-based max rating (`trip_days * max_places_per_day * 5.0`) |
 | `days[].places[]` | Ordered list of visited places with arrival/departure times |
+| `days[].places[].rate` | The popularity rating of this specific place |
 | `days[].places[].travel_time_to_next` | Travel time in minutes to the next place (or to the day's end point) |
 | `days[].start` / `days[].end` | Day start point (Depot or Hotel) and end point |
 | `map_data` | Pre-computed data for Leaflet map rendering |
@@ -207,7 +219,10 @@ Each optimization run produces a JSON file saved to `storage/results/`.
       "algorithm": "ga",
       "total_distance_km": 124.80,
       "total_time_min": 390.0,
-      "total_co2_kg": 17.500
+      "total_co2_kg": 17.500,
+      "average_rating": 4.65,
+      "total_rating_score": 62.4,
+      "max_rating_score": 70.0
     }
   ]
 }
@@ -232,6 +247,8 @@ Summary
 Total Distance (km),124.80
 Total Time (min),390.0
 Total CO2 (kg),17.500
+Average Rating,4.65
+Total Rating Score,62.4
 Hotel,โรงแรม A
 Algorithm,ga
 ```

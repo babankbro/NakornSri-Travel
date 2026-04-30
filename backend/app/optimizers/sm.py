@@ -216,7 +216,7 @@ class SMOptimizer(BaseOptimizer):
         candidates = self._get_candidate_places()
         all_candidate_ids = [p.id for p in candidates]
         otop_ids = [p.id for p in self.data.get_otop_places()]
-        food_ids = [p.id for p in candidates if p.type == PlaceType.FOOD]
+        food_ids = [p.id for p in candidates if p.is_food]
 
         # Build each day's route sequentially
         used_ids: set = set()

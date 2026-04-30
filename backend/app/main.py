@@ -40,7 +40,7 @@ app_state = {}
 @app.on_event("startup")
 async def startup():
     data_loader = DataLoader()
-    csv_path = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
+    csv_path = os.path.join(DATA_DIR, "TravelInfo_v3.csv")
     if os.path.exists(csv_path):
         data_loader.load_places(csv_path)
         print(f"Loaded {len(data_loader.places)} places from {csv_path}")

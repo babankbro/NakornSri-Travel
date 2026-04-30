@@ -23,10 +23,10 @@ This system solves a variant of the **multi-objective Traveling Salesman Problem
 
 1. **Time window**: Each day must finish by 17:00 (1020 minutes)
 2. **OTOP**: Each day must visit **exactly 1** OTOP (community product) place
-3. **Food**: Each day must visit **at least 1** Food place, ideally arriving between 11:00 and 13:00.
+3. **Food**: Each day must visit **at least 1** Food place (Type `Food` or `Food and Café`), ideally arriving between 11:00 and 13:00.
 4. **No duplicates**: A place visited on Day 1 cannot be visited on Day 2
 5. **Hotel**: Exactly 1 hotel selected for overnight stay between days
-6. **Place Count**: Each day must contain between `min_places_per_day` and `max_places_per_day`.
+6. **Place Count**: Each day must contain between 5 and 7 places (default limits).
 
 ## Route Representation
 
@@ -47,15 +47,17 @@ Day 2 sequence: `Hotel → day2_places[0] → ... → day2_places[n] → Depot`
 The fitness function combines three normalized objectives plus constraint penalties. Note that travel time is handled as a strict constraint (must finish by 17:00), rather than a weighted scalar objective, to ensure feasibility without over-penalizing longer culturally enriching trips.
 
 ```
-fitness = w_distance * (total_distance / 200)
-        + w_co2      * (total_co2 / 150)
-        + w_rating   * ((5.0 - avg_rating) / 5.0)
+fitness = w_distance * (total_distance / 250)
+        + w_co2      * (total_co2 / 200)
+        + w_rating   * (1.0 - (actual_rating_sum / max_possible_rating_sum))
         + penalties
 ```
 
-**Normalization constants**: distance/200 km, co2/150 kg, rating (inverted for minimization)
+**Normalization constants**: distance/250 km, co2/200 kg, rating (inverted collective score ratio)
 
 **Default weights**: `w_distance=0.4`, `w_co2=0.3`, `w_rating=0.3`
+
+*Note: `max_possible_rating_sum = trip_days * max_places_per_day * 5.0`*
 
 ### Penalties
 
@@ -80,7 +82,7 @@ For each day, the evaluator computes:
    - Add travel distance and travel time from previous place
    - Add visit duration (from CSV `VisitTime`, default 45 min if 0)
    - Add CO2 value (from CSV `CO2` field — per-place, not per-travel)
-   - If the place is a `Food` type, its `VisitTime` acts as the lunch break. Arrival time is logged for penalty checking.
+   - If the place is a `Food` or `Food and Café` type, its `VisitTime` acts as the lunch break. Arrival time is logged for penalty checking.
 3. Add travel distance/time from last place to `end_id` (Hotel or Depot)
 4. Check feasibility: `end_time <= 17:00`
 
@@ -92,8 +94,8 @@ The `lifestyle_type` parameter affects candidate place ordering:
 |-----------|--------|
 | `all` | No filtering — all tourist places equally available |
 | `culture` | `Culture` type places prioritized (placed first in candidate list) |
-| `cafe` | `Travel` type places prioritized |
-| `food` | Same as `all` (no specific food type in data) |
+| `cafe` | `Café` and `Food and Café` type places prioritized |
+| `food` | `Food` and `Food and Café` satisfy lunch constraint |
 
 Higher-rated places (`RATE` field) have a higher probability of being selected during random route generation (weighted random sampling).
 

@@ -15,7 +15,7 @@ class ALNSOperators:
     def _get_all_candidate_ids(self) -> List[str]:
         return [
             p.id for p in self.data.places
-            if p.type in (PlaceType.TRAVEL, PlaceType.CULTURE, PlaceType.OTOP, PlaceType.FOOD)
+            if p.is_tourist
         ]
 
     def _all_place_ids(self, route: Route) -> List[str]:
@@ -121,9 +121,9 @@ class ALNSOperators:
             day = None
             
             # If constrained, force it into the day that is missing this type
-            if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+            if "Food" in p_type.value or p_type == PlaceType.OTOP:
                 for d in range(num_days):
-                    if not any(next(p.type for p in self.data.places if p.id == p_id) == p_type for p_id in new_route.day_places[d]):
+                    if not any((next(p.is_food for p in self.data.places if p.id == p_id) if "Food" in p_type.value else next(p.type for p in self.data.places if p.id == p_id) == p_type) for p_id in new_route.day_places[d]):
                         day = d
                         break
             
@@ -135,9 +135,9 @@ class ALNSOperators:
                 # Try other days
                 inserted = False
                 for d in range(num_days):
-                    if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+                    if "Food" in p_type.value or p_type == PlaceType.OTOP:
                         # Still must respect type constraint if trying other days
-                        has_type = any(next(p.type for p in self.data.places if p.id == p_id) == p_type for p_id in new_route.day_places[d])
+                        has_type = any((next(p.is_food for p in self.data.places if p.id == p_id) if "Food" in p_type.value else next(p.type for p in self.data.places if p.id == p_id) == p_type) for p_id in new_route.day_places[d])
                         if has_type:
                             continue
                     

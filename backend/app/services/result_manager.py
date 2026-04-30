@@ -46,6 +46,9 @@ class ResultManager:
             "total_distance_km": result.get("summary", {}).get("total_distance_km", 0),
             "total_time_min": result.get("summary", {}).get("total_time_min", 0),
             "total_co2_kg": result.get("summary", {}).get("total_co2_kg", 0),
+            "average_rating": result.get("summary", {}).get("average_rating", 0),
+            "total_rating_score": result.get("summary", {}).get("total_rating_score", 0),
+            "max_rating_score": result.get("summary", {}).get("max_rating_score", 0),
         })
         self._save_manifest(manifest)
         return result_id
@@ -113,6 +116,8 @@ class ResultManager:
             writer.writerow(["Total Distance (km)", summary.get("total_distance_km", "")])
             writer.writerow(["Total Time (min)", summary.get("total_time_min", "")])
             writer.writerow(["Total CO2 (kg)", summary.get("total_co2_kg", "")])
+            writer.writerow(["Average Rating", summary.get("average_rating", "")])
+            writer.writerow(["Total Rating Score", summary.get("total_rating_score", "")])
             writer.writerow(["Hotel", summary.get("selected_hotel", "")])
             writer.writerow(["Algorithm", summary.get("algorithm", "")])
         return filepath

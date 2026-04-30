@@ -50,7 +50,7 @@ from backend.app.optimizers.moma import MOMAOptimizer
 # Configuration
 # ============================================================
 
-N_ROUNDS = 10  # Number of repeated runs per algorithm × test case
+N_ROUNDS = 1  # Number of repeated runs per algorithm × test case
 
 # ============================================================
 # Test case definitions
@@ -141,6 +141,7 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
         all_place_ids = [pid for day in route.day_places for pid in day]
         ratings = [place_map[pid].rate for pid in all_place_ids if pid in place_map]
         avg_rating = float(np.mean(ratings)) if ratings else 0.0
+        total_rating = float(np.sum(ratings)) if ratings else 0.0
 
         return {
             "success": True,
@@ -150,6 +151,7 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
             "time_min": evaluation["total_time_min"],
             "co2_kg": evaluation["total_co2_kg"],
             "avg_rating": avg_rating,
+            "total_rating": total_rating,
             "feasible": evaluation["feasible"],
             "violations": violations,
         }
@@ -162,6 +164,7 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
             "time_min": 0,
             "co2_kg": 0,
             "avg_rating": 0.0,
+            "total_rating": 0.0,
             "feasible": False,
             "violations": [str(e)],
         }
@@ -169,7 +172,7 @@ def run_single(loader: DataLoader, request: OptimizeRequest, algo_name: str) -> 
 
 def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n_rounds: int) -> dict:
     """Run algorithm n_rounds times and return aggregated stats (mean ± std) + raw per-round data."""
-    times, fitnesses, distances, times_min, co2s, ratings = [], [], [], [], [], []
+    times, fitnesses, distances, times_min, co2s, ratings, totals = [], [], [], [], [], [], []
     success_count = 0
     feasible_count = 0
     all_violations = []
@@ -188,6 +191,7 @@ def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n
             times_min.append(r["time_min"])
             co2s.append(r["co2_kg"])
             ratings.append(r["avg_rating"])
+            totals.append(r["total_rating"])
             status = "✓" if r["feasible"] and not r["violations"] else "⚠"
             if r["feasible"]:
                 feasible_count += 1
@@ -200,7 +204,8 @@ def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n
                 f"dist={r['distance_km']:7.2f}km  "
                 f"time={r['time_min']:6.1f}min  "
                 f"co2={r['co2_kg']:6.3f}kg  "
-                f"rating={r['avg_rating']:5.2f}"
+                f"rating={r['avg_rating']:5.2f}  "
+                f"total={r['total_rating']:5.1f}"
             )
             if r["violations"]:
                 for v in r["violations"]:
@@ -219,6 +224,7 @@ def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n
             "time_min_mean": 0, "time_min_std": 0,
             "co2_mean": 0, "co2_std": 0,
             "rating_mean": 0, "rating_std": 0,
+            "total_mean": 0, "total_std": 0,
             "feasible_count": 0,
             "violations": all_violations,
             "raw_rounds": raw_rounds,
@@ -240,6 +246,8 @@ def run_repeated(loader: DataLoader, request: OptimizeRequest, algo_name: str, n
         "co2_std":       float(np.std(co2s)),
         "rating_mean":   float(np.mean(ratings)),
         "rating_std":    float(np.std(ratings)),
+        "total_mean":    float(np.mean(totals)),
+        "total_std":     float(np.std(totals)),
         "feasible_count": feasible_count,
         "violations": list(set(all_violations)),
         "raw_rounds": raw_rounds,
@@ -308,7 +316,8 @@ def main():
                     f"      dist    = {fmt_mean_std(agg['distance_mean'], agg['distance_std'], 2)}km\n"
                     f"      travel  = {fmt_mean_std(agg['time_min_mean'], agg['time_min_std'], 1)}min\n"
                     f"      co2     = {fmt_mean_std(agg['co2_mean'],      agg['co2_std'], 3)}kg\n"
-                    f"      rating  = {fmt_mean_std(agg['rating_mean'],   agg['rating_std'], 2)}"
+                    f"      rating  = {fmt_mean_std(agg['rating_mean'],   agg['rating_std'], 2)}\n"
+                    f"      total_r = {fmt_mean_std(agg['total_mean'],    agg['total_std'], 1)}"
                 )
                 if agg["violations"]:
                     for v in agg["violations"]:
@@ -338,6 +347,8 @@ def main():
                 "co2_std":       round(agg["co2_std"], 3),
                 "rating_mean":   round(agg["rating_mean"], 3),
                 "rating_std":    round(agg["rating_std"], 3),
+                "total_rating_mean": round(agg["total_mean"], 2),
+                "total_rating_std":  round(agg["total_std"], 2),
                 "violations": "; ".join(agg["violations"]) if agg["violations"] else "",
             })
 
@@ -357,6 +368,7 @@ def main():
                     "time_min":    round(rr["time_min"], 1),
                     "co2_kg":      round(rr["co2_kg"], 3),
                     "avg_rating":  round(rr["avg_rating"], 3),
+                    "total_rating": round(rr["total_rating"], 2),
                     "feasible":    rr["feasible"],
                     "violations":  "; ".join(rr["violations"]) if rr["violations"] else "",
                 })
@@ -414,6 +426,7 @@ def main():
     print_table("TRAVEL TIME", "minutes", "time_min", True)
     print_table("CO2 EMISSIONS", "kg", "co2", True)
     print_table("AVG PLACE RATING", "higher is better", "rating", False)
+    print_table("TOTAL RATING SCORE", "higher is better", "total", False)
 
     # ============================================================
     # Save CSV — summary (mean ± std)
@@ -431,6 +444,7 @@ def main():
             "time_min_mean", "time_min_std",
             "co2_mean", "co2_std",
             "rating_mean", "rating_std",
+            "total_rating_mean", "total_rating_std",
             "violations",
         ])
         writer.writeheader()
@@ -443,7 +457,7 @@ def main():
             "case", "description", "trip_days", "lifestyle", "n_places",
             "algorithm", "round", "success",
             "time_sec", "fitness", "distance_km", "time_min",
-            "co2_kg", "avg_rating", "feasible", "violations",
+            "co2_kg", "avg_rating", "total_rating", "feasible", "violations",
         ])
         writer.writeheader()
         writer.writerows(raw_rows)

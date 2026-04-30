@@ -140,6 +140,7 @@ class RouteOptimizerService:
                 else:
                     travel_time_to_next = self.data.get_travel_time(sched["id"], end_place.id)
 
+                place_obj = next((p for p in self.data.places if p.id == sched["id"]), None)
                 place_details.append({
                     "order": i + 1,
                     "id": sched["id"],
@@ -147,6 +148,7 @@ class RouteOptimizerService:
                     "type": sched["type"],
                     "lat": sched["lat"],
                     "lng": sched["lng"],
+                    "rate": place_obj.rate if place_obj else 0.0,
                     "co2": sched["co2"],
                     "arrival": minutes_to_time_str(sched["arrival_min"]),
                     "departure": minutes_to_time_str(sched["departure_min"]),
@@ -197,6 +199,18 @@ class RouteOptimizerService:
         all_lngs = [p.lng for p in self.data.places]
         center = [(min(all_lats) + max(all_lats)) / 2, (min(all_lngs) + max(all_lngs)) / 2]
 
+        # Calculate average rating and total score from already built place_details
+        actual_sum = 0.0
+        place_count = 0
+        for day in days:
+            for p in day["places"]:
+                actual_sum += p.get("rate", 0.0)
+                place_count += 1
+        avg_rating = actual_sum / place_count if place_count > 0 else 0.0
+        
+        max_spots = request.trip_days * request.max_places_per_day
+        max_possible_sum = max_spots * 5.0
+
         return {
             "result_id": result_id,
             "created_at": now.isoformat(),
@@ -205,6 +219,9 @@ class RouteOptimizerService:
                 "total_distance_km": round(evaluation["total_distance_km"], 2),
                 "total_time_min": round(evaluation["total_time_min"], 1),
                 "total_co2_kg": round(evaluation["total_co2_kg"], 3),
+                "average_rating": round(avg_rating, 2),
+                "total_rating_score": round(actual_sum, 1),
+                "max_rating_score": float(max_possible_sum),
                 "selected_hotel": selected_hotel,
                 "algorithm": request.algorithm.value,
                 "lifestyle_type": request.lifestyle_type.value,

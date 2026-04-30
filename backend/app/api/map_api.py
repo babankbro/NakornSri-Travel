@@ -50,5 +50,7 @@ async def get_legend():
             {"type": "Culture", "color": "#8B5CF6", "icon": "landmark", "label": "วัฒนธรรม"},
             {"type": "OTOP", "color": "#EF4444", "icon": "shopping-bag", "label": "ผลิตภัณฑ์ชุมชน"},
             {"type": "Food", "color": "#EC4899", "icon": "utensils", "label": "ร้านอาหาร"},
+            {"type": "Food and Café", "color": "#F43F5E", "icon": "coffee", "label": "ร้านอาหารและคาเฟ่"},
+            {"type": "Café", "color": "#14B8A6", "icon": "mug-hot", "label": "คาเฟ่"},
         ]
     }

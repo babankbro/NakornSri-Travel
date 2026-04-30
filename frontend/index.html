@@ -92,12 +92,17 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">ไลฟ์สไตล์</label>
-                            <select id="lifestyle" class="w-full border rounded-lg px-3 py-2 text-sm">
+                            <select id="lifestyle" class="w-full border rounded-lg px-3 py-2 text-sm" onchange="updateLifestyleInfo()">
                                 <option value="all">ทั้งหมด</option>
                                 <option value="culture">สายวัฒนธรรม</option>
                                 <option value="cafe">สายคาเฟ่ติดแกรม</option>
                                 <option value="food">สายของอร่อย</option>
                             </select>
+                            <div id="lifestyleInfo" class="mt-2 hidden rounded-lg px-3 py-2 text-xs border">
+                                <div class="font-semibold mb-1" id="lifestyleInfoTitle"></div>
+                                <div id="lifestyleInfoTags" class="flex flex-wrap gap-1"></div>
+                                <div class="mt-1 text-gray-400" id="lifestyleInfoReward"></div>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">สถานที่ต่อวัน (ขั้นต่ำ - สูงสุด)</label>
@@ -141,7 +146,7 @@
                     </div>
 
                     <!-- Summary Cards -->
-                    <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-4 gap-3 hidden">
+                    <div id="summaryCards" class="grid grid-cols-2 md:grid-cols-6 gap-3 hidden">
                         <div class="card p-4 text-center">
                             <div class="text-xs text-gray-500 mb-1">ระยะทางรวม</div>
                             <div id="sumDist" class="text-xl font-bold text-blue-600">-</div>
@@ -156,6 +161,16 @@
                             <div class="text-xs text-gray-500 mb-1">CO₂ รวม</div>
                             <div id="sumCo2" class="text-xl font-bold text-red-500">-</div>
                             <div class="text-xs text-gray-400">kg</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">คะแนนเฉลี่ย</div>
+                            <div id="sumRating" class="text-xl font-bold text-amber-500">-</div>
+                            <div class="text-xs text-gray-400">stars</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                            <div class="text-xs text-gray-500 mb-1">คะแนนรวม</div>
+                            <div id="sumTotalRating" class="text-xl font-bold text-blue-500">-</div>
+                            <div class="text-xs text-gray-400">points</div>
                         </div>
                         <div class="card p-4 text-center">
                             <div class="text-xs text-gray-500 mb-1">ที่พัก</div>

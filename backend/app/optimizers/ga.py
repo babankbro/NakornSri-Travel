@@ -117,12 +117,12 @@ class GAOptimizer(BaseOptimizer):
         for d in range(num_days):
             day_places = child_day_places[d]
             for req_type in (PlaceType.OTOP, PlaceType.FOOD):
-                type_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) == req_type]
+                type_pids = [pid for pid in day_places if (next(p.is_food for p in self.data.places if p.id == pid) if req_type == PlaceType.FOOD else next(p.type for p in self.data.places if p.id == pid) == req_type)]
                 
                 while len(type_pids) > 1:
                     pid_to_remove = type_pids.pop()
                     candidates = self._get_candidate_places()
-                    replacements = [p.id for p in candidates if p.id not in seen and p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
+                    replacements = [p.id for p in candidates if p.id not in seen and (p.type != PlaceType.OTOP and not p.is_food)]
                     if replacements:
                         rep = replacements[self.rng.integers(0, len(replacements))]
                         idx = day_places.index(pid_to_remove)
@@ -197,11 +197,11 @@ class GAOptimizer(BaseOptimizer):
                     valid_i2s = []
                     for i2, pid2 in enumerate(route.day_places[d2]):
                         p2_type = next(p.type for p in self.data.places if p.id == pid2)
-                        if p1_type in (PlaceType.FOOD, PlaceType.OTOP):
-                            if p2_type == p1_type:
+                        if "Food" in p1_type.value or p1_type == PlaceType.OTOP:
+                            if p2_type == p1_type or ("Food" in p1_type.value and "Food" in p2_type.value):
                                 valid_i2s.append(i2)
                         else:
-                            if p2_type not in (PlaceType.FOOD, PlaceType.OTOP):
+                            if "Food" not in p2_type.value and p2_type != PlaceType.OTOP:
                                 valid_i2s.append(i2)
                     
                     if valid_i2s:
@@ -231,6 +231,7 @@ class GAOptimizer(BaseOptimizer):
         print(f"[GA] crossover={self.crossover_rate}  mutation={self.mutation_rate}")
         print(f"{'='*60}")
 
+        best_avg_rate = 0.0
         for gen in range(self.generations):
             sorted_indices = np.argsort(fitnesses)
             new_population = []
@@ -255,6 +256,13 @@ class GAOptimizer(BaseOptimizer):
             if self.verbose:
                 ev = self.evaluator.evaluate_route(population[best_idx])
                 avg_fit = sum(fitnesses) / len(fitnesses)
+                
+                # Calculate avg rating for log
+                place_map = {p.id: p for p in self.data.places}
+                best_pids = [pid for day in population[best_idx].day_places for pid in day]
+                best_ratings = [place_map[pid].rate for pid in best_pids if pid in place_map]
+                best_avg_rate = np.mean(best_ratings) if best_ratings else 0.0
+
                 hotels_str = ",".join(self.best_route.hotel_ids) if self.best_route.hotel_ids else "none"
                 print(
                     f"[GA] Gen {gen+1:>4}/{self.generations}"
@@ -263,9 +271,10 @@ class GAOptimizer(BaseOptimizer):
                     f"  dist={ev['total_distance_km']:.2f}km"
                     f"  time={ev['total_time_min']:.1f}min"
                     f"  co2={ev['total_co2_kg']:.3f}kg"
+                    f"  rate={best_avg_rate:.2f}"
                     f"  hotels={hotels_str}"
                 )
 
-        print(f"[GA] DONE  best_fit={self.best_fitness:.4f}  time={time.time()-start_time:.2f}s\n")
+        print(f"[GA] DONE  best_fit={self.best_fitness:.4f}  rate={best_avg_rate:.2f}  time={time.time()-start_time:.2f}s\n")
         self.computation_time = time.time() - start_time
         return self.best_route

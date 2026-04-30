@@ -52,14 +52,12 @@ $$ F_1 = \sum_{k \in K} \sum_{i \in N} \sum_{j \in N} c_{ij} x_{ijk} $$
 ### Objective 2: Minimize Total CO₂ Emissions ($F_2$)
 $$ F_2 = \sum_{k \in K} \sum_{i \in P} e_i y_{ik} $$
 
-### Objective 3: Maximize Average Place Rating ($F_3$)
-$$ F_3 = \frac{\sum_{k \in K} \sum_{i \in P} r_i y_{ik}}{\sum_{k \in K} \sum_{i \in P} y_{ik}} $$
-
-*Note: In the implementation, $F_3$ is inverted as $\left( \frac{5.0 - F_3}{5.0} \right)$ so that all algorithms can strictly minimize the resulting scalar value.*
+### Objective 3: Maximize Collective Place Rating ($F_3$)
+$$ F_3 = \frac{\sum_{k \in K} \sum_{i \in P} r_i y_{ik}}{|K| \times Q_{max} \times 5.0} $$
 
 ### Scalarized Fitness Function
 For non-Pareto algorithms, the fitness $Z$ is calculated as:
-$$ \text{Minimize } Z = W_d \left(\frac{F_1}{200}\right) + W_c \left(\frac{F_2}{150}\right) + W_r \left(\frac{5.0 - F_3}{5.0}\right) + \mathcal{P} $$
+$$ \text{Minimize } Z = W_d \left(\frac{F_1}{250}\right) + W_c \left(\frac{F_2}{200}\right) + W_r (1.0 - F_3) + \mathcal{P} $$
 Where $\mathcal{P}$ represents the sum of all constraint violation penalties.
 
 ---

@@ -10,6 +10,8 @@ class PlaceType(str, Enum):
     CULTURE = "Culture"
     OTOP = "OTOP"
     FOOD = "Food"
+    CAFE = "Café"
+    FOOD_CAFE = "Food and Café"
 
 
 class AlgorithmType(str, Enum):
@@ -42,6 +44,30 @@ class Place(BaseModel):
     co2: float = 0.0
     type: PlaceType
 
+    # Keywords in Thai/English that identify a Travel place containing a cafe inside
+    _CAFE_TRAVEL_KEYWORDS = ("คาเฟ่", "cafe", "ฟาร์ม", "farm", "วัลเลย์", "valley")
+
+    @property
+    def is_food(self) -> bool:
+        return "Food" in self.type.value
+
+    @property
+    def is_cafe(self) -> bool:
+        val = self.type.value.lower()
+        return "café" in val or "cafe" in val
+
+    @property
+    def is_cafe_travel(self) -> bool:
+        """True when this is a Travel place that physically contains a cafe/farm cafe."""
+        if self.type != PlaceType.TRAVEL:
+            return False
+        name_lower = self.name.lower()
+        return any(kw.lower() in name_lower for kw in self._CAFE_TRAVEL_KEYWORDS)
+
+    @property
+    def is_tourist(self) -> bool:
+        return self.type not in (PlaceType.DEPOT, PlaceType.HOTEL)
+
 
 class OptimizeRequest(BaseModel):
     trip_days: int = Field(default=2, ge=1, le=3)
@@ -68,6 +94,9 @@ class RouteSummary(BaseModel):
     total_distance_km: float
     total_time_min: float
     total_co2_kg: float
+    average_rating: Optional[float] = 0.0
+    total_rating_score: Optional[float] = 0.0
+    max_rating_score: Optional[float] = 0.0
     selected_hotel: Optional[str] = None
     algorithm: str
     lifestyle_type: str

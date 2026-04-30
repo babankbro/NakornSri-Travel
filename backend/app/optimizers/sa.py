@@ -61,11 +61,11 @@ class SAOptimizer(BaseOptimizer):
                     valid_i2s = []
                     for i2, pid2 in enumerate(new_route.day_places[d2]):
                         p2_type = next(p.type for p in self.data.places if p.id == pid2)
-                        if p1_type in (PlaceType.FOOD, PlaceType.OTOP):
-                            if p2_type == p1_type:
+                        if "Food" in p1_type.value or p1_type == PlaceType.OTOP:
+                            if p2_type == p1_type or ("Food" in p1_type.value and "Food" in p2_type.value):
                                 valid_i2s.append(i2)
                         else:
-                            if p2_type not in (PlaceType.FOOD, PlaceType.OTOP):
+                            if "Food" not in p2_type.value and p2_type != PlaceType.OTOP:
                                 valid_i2s.append(i2)
                     
                     if valid_i2s:
@@ -85,10 +85,10 @@ class SAOptimizer(BaseOptimizer):
                 pid = places[idx]
                 p_type = next(p.type for p in self.data.places if p.id == pid)
                 
-                if p_type in (PlaceType.FOOD, PlaceType.OTOP):
+                if ("Food" in p_type.value or p_type == PlaceType.OTOP):
                     candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type == p_type]
                 else:
-                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type not in (PlaceType.FOOD, PlaceType.OTOP)]
+                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and (p.type != PlaceType.OTOP and not p.is_food)]
                 
                 if candidates:
                     new_place = candidates[self.rng.integers(0, len(candidates))]

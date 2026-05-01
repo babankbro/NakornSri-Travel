@@ -195,14 +195,20 @@ class RouteEvaluator:
             if food_count == 0:
                 penalty += 50.0
 
+        # Lunch window penalty: only the best-timed food/cafe place counts as "lunch".
+        # Extra cafe visits (morning coffee, afternoon cake) are free of timing penalty.
         for day_eval in ev["days"]:
-            for sched in day_eval["schedule"]:
-                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value):
-                    arrival = sched["arrival_min"]
-                    if arrival < 660:
-                        penalty += ((660 - arrival) / 10.0) * 2.0
-                    elif arrival > 780:
-                        penalty += ((arrival - 780) / 10.0) * 2.0
+            food_arrivals = [
+                sched["arrival_min"] for sched in day_eval["schedule"]
+                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value)
+            ]
+            if food_arrivals:
+                # Deviation = how far the closest food-stop is from the [660, 780] window
+                best_deviation = min(
+                    max(0, 660 - arr) + max(0, arr - 780)
+                    for arr in food_arrivals
+                )
+                penalty += (best_deviation / 10.0) * 2.0
 
         # Bonus for cafe lifestyle: reward visiting CAFE / FOOD_CAFE places
         if getattr(self.request, 'lifestyle_type', None) and self.request.lifestyle_type.value == "cafe":
@@ -211,6 +217,14 @@ class RouteEvaluator:
                 if pid in place_map and place_map[pid].type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)
             )
             penalty -= 0.10 * cafe_count  # each cafe visit reduces cost (bonus)
+        
+        # Bonus for culture lifestyle: reward visiting CULTURE places
+        if getattr(self.request, 'lifestyle_type', None) and self.request.lifestyle_type.value == "culture":
+            culture_count = sum(
+                1 for pid in all_place_ids
+                if pid in place_map and place_map[pid].type == PlaceType.CULTURE
+            )
+            penalty -= 0.05 * culture_count  # each culture visit reduces cost (bonus)
 
         return cost + penalty
 
@@ -244,11 +258,12 @@ class RouteEvaluator:
                 violations.append(f"Day {day_idx}: missing Food visit (need at least 1)")
 
         for day_idx, day_eval in enumerate(ev["days"], 1):
-            for sched in day_eval["schedule"]:
-                if sched["type"] == PlaceType.FOOD.value:
-                    arrival = sched["arrival_min"]
-                    if arrival < 660 or arrival > 780:
-                        violations.append(f"Day {day_idx}: Food arrival outside 11:00-13:00 window")
+            food_arrivals = [
+                sched["arrival_min"] for sched in day_eval["schedule"]
+                if sched["type"] in (PlaceType.FOOD.value, PlaceType.FOOD_CAFE.value)
+            ]
+            if food_arrivals and not any(660 <= arr <= 780 for arr in food_arrivals):
+                violations.append(f"Day {day_idx}: No food/cafe visit arrives in lunch window 11:00-13:00")
 
         return violations
 
@@ -284,9 +299,10 @@ class BaseOptimizer(ABC):
         min_per_day = self.request.min_places_per_day
         max_per_day = self.request.max_places_per_day
 
-        # Tourist slot pool: Travel, Culture, OTOP-excluded, FOOD-excluded, FOOD_CAFE-excluded
-        # CAFE type fills tourist slots freely (not mandatory lunch)
-        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD, PlaceType.FOOD_CAFE)]
+        # Tourist slot pool: anything except OTOP and pure FOOD.
+        # CAFE and FOOD_CAFE are allowed here — they fill extra slots beyond the mandatory lunch.
+        # Duplicates are prevented by used_tourist_ids tracking below.
+        non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD)]
 
         def pick_non_otop_food(n: int, exclude: set) -> List[Place]:
             pool = [p for p in non_otop_food if p.id not in exclude]

@@ -37,7 +37,7 @@ This approach embeds ALNS directly *inside* the evolutionary loop of the Genetic
 ## Key Assumptions to Validate
 - [ ] **Computation Time:** Embedding ALNS inside a GA loop will explode computation time unless ALNS iterations are kept extremely low (e.g., 2-3 iterations per offspring). We assume a fast, lightweight ALNS operator is sufficient for local refinement.
 - [ ] **Pareto Sorting Overhead:** Calculating non-dominated sorting (NSGA-II) at every generation is computationally heavier than scalar fitness. We assume this overhead is justified by the resulting objective dominance.
-- [ ] **Constraint Handling:** Multi-objective algorithms often struggle with strict feasibility bounds (e.g., exactly 1 OTOP, 3-7 places per day). We assume penalty functions applied to the Pareto rank will adequately steer the population toward feasible space.
+- [ ] **Constraint Handling:** Multi-objective algorithms often struggle with strict feasibility bounds (e.g., exactly 1 OTOP, 5-7 places per day). We assume penalty functions applied to the Pareto rank will adequately steer the population toward feasible space.
 
 ## MVP Scope (Phase 1 Implementation)
 

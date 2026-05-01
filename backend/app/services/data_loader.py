@@ -25,7 +25,9 @@ class DataLoader:
 
     def load_places(self, filepath: Optional[str] = None) -> List[Place]:
         if filepath is None:
-            filepath = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
+            filepath = os.path.join(DATA_DIR, "TravelInfo_v3.csv")
+            if not os.path.exists(filepath):
+                filepath = os.path.join(DATA_DIR, "TravelInfo_v2.csv")
             if not os.path.exists(filepath):
                 filepath = os.path.join(INPUTS_DIR, "TravelInfo_v2.csv")
 

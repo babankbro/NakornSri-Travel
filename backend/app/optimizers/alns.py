@@ -29,13 +29,30 @@ class ALNSOperators:
                 day.remove(pid)
                 return
 
+    def _is_protected(self, route: Route, pid: str) -> bool:
+        """Return True if removing pid would leave its day with 0 food or 0 OTOP places."""
+        place_map = {p.id: p for p in self.data.places}
+        p = place_map.get(pid)
+        if p is None:
+            return False
+        for day in route.day_places:
+            if pid not in day:
+                continue
+            if p.is_food:
+                food_count = sum(1 for d_pid in day if d_pid in place_map and place_map[d_pid].is_food)
+                return food_count <= 1
+            if p.type == PlaceType.OTOP:
+                otop_count = sum(1 for d_pid in day if d_pid in place_map and place_map[d_pid].type == PlaceType.OTOP)
+                return otop_count <= 1
+        return False
+
     # ---- Destroy operators ----
 
     def random_removal(self, route: Route, n_remove: int = 2) -> Tuple[Route, List[str]]:
         new_route = route.copy()
         removed = []
         for _ in range(n_remove):
-            all_places = self._all_place_ids(new_route)
+            all_places = [pid for pid in self._all_place_ids(new_route) if not self._is_protected(new_route, pid)]
             if not all_places:
                 break
             idx = self.rng.integers(0, len(all_places))
@@ -53,6 +70,8 @@ class ALNSOperators:
             base_fitness = evaluator.fitness(new_route)
             for day in new_route.day_places:
                 for pid in day:
+                    if self._is_protected(new_route, pid):
+                        continue
                     temp = new_route.copy()
                     self._remove_from_route(temp, pid)
                     new_fitness = evaluator.fitness(temp)
@@ -67,14 +86,14 @@ class ALNSOperators:
 
     def shaw_removal(self, route: Route, n_remove: int = 2) -> Tuple[Route, List[str]]:
         new_route = route.copy()
-        all_places = self._all_place_ids(new_route)
-        if len(all_places) < 2:
+        removable = [pid for pid in self._all_place_ids(new_route) if not self._is_protected(new_route, pid)]
+        if len(removable) < 1:
             return new_route, []
-        seed_pid = all_places[self.rng.integers(0, len(all_places))]
+        seed_pid = removable[self.rng.integers(0, len(removable))]
         seed_idx = self.data.id_to_index.get(seed_pid, 0)
 
         similarities = []
-        for pid in all_places:
+        for pid in removable:
             if pid == seed_pid:
                 continue
             p_idx = self.data.id_to_index.get(pid, 0)

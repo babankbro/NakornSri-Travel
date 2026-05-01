@@ -56,20 +56,25 @@ N_ROUNDS = 1  # Number of repeated runs per algorithm × test case
 # Test case definitions
 # ============================================================
 
-# Place IDs from TravelInfo_v2.csv (63 total):
-# D1 (Depot), H1-H18 (Hotels), T1-T21 (Travel/Culture), P1-P4 (OTOP), R1-R19 (Food)
+# Place IDs from TravelInfo_v3.csv:
+# D1 (Depot), H1-H18 (Hotels), T1-T21 (Travel/Culture), P1-P4 (OTOP)
+# Food: F1,F3,F5,F10,F11,F13,F15,F17  Food and Café: FC2,FC4,FC6,FC7,FC9,FC12,FC14,FC16,FC18,FC19  Café: C8
 
-SMALL1_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "R1", "R2"}
-SMALL2_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "T7", "T8", "R3", "R4"}
-SMALL3_IDS = {"D1", "H3", "H5", "H8", "P3", "P4", "T10", "T11", "T14", "T15", "R5", "R6"}
+# Ordered food/food-cafe IDs for subset selection
+_FOOD_IDS = ["F1", "FC2", "F3", "FC4", "F5", "FC6", "FC7", "C8",
+             "FC9", "F10", "F11", "FC12", "F13", "FC14", "F15", "FC16", "F17", "FC18", "FC19"]
 
-MEDIUM1_IDS = {"D1"} | {f"H{i}" for i in range(1, 4)} | {f"P{i}" for i in range(1, 3)} | {f"T{i}" for i in range(1, 8)} | {f"R{i}" for i in range(1, 5)}
-MEDIUM2_IDS = {"D1"} | {f"H{i}" for i in range(1, 5)} | {f"P{i}" for i in range(1, 4)} | {f"T{i}" for i in range(1, 10)} | {f"R{i}" for i in range(1, 5)}
-MEDIUM3_IDS = {"D1"} | {f"H{i}" for i in range(1, 6)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 12)} | {f"R{i}" for i in range(1, 5)}
+SMALL1_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "F1", "FC2"}
+SMALL2_IDS = {"D1", "H1", "H2", "P1", "P2", "T1", "T2", "T3", "T7", "T8", "F3", "FC4"}
+SMALL3_IDS = {"D1", "H3", "H5", "H8", "P3", "P4", "T10", "T11", "T14", "T15", "F5", "FC6"}
 
-LARGE1_IDS = {"D1"} | {f"H{i}" for i in range(1, 7)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 15)} | {f"R{i}" for i in range(1, 6)}
-LARGE2_IDS = {"D1"} | {f"H{i}" for i in range(1, 9)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 18)} | {f"R{i}" for i in range(1, 8)}
-LARGE3_IDS = {"D1"} | {f"H{i}" for i in range(1, 11)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 21)} | {f"R{i}" for i in range(1, 12)}
+MEDIUM1_IDS = {"D1"} | {f"H{i}" for i in range(1, 4)} | {f"P{i}" for i in range(1, 3)} | {f"T{i}" for i in range(1, 8)} | set(_FOOD_IDS[:4])
+MEDIUM2_IDS = {"D1"} | {f"H{i}" for i in range(1, 5)} | {f"P{i}" for i in range(1, 4)} | {f"T{i}" for i in range(1, 10)} | set(_FOOD_IDS[:4])
+MEDIUM3_IDS = {"D1"} | {f"H{i}" for i in range(1, 6)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 12)} | set(_FOOD_IDS[:4])
+
+LARGE1_IDS = {"D1"} | {f"H{i}" for i in range(1, 7)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 15)} | set(_FOOD_IDS[:5])
+LARGE2_IDS = {"D1"} | {f"H{i}" for i in range(1, 9)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 18)} | set(_FOOD_IDS[:7])
+LARGE3_IDS = {"D1"} | {f"H{i}" for i in range(1, 11)} | {f"P{i}" for i in range(1, 5)} | {f"T{i}" for i in range(1, 21)} | set(_FOOD_IDS[:11])
 
 # Real = all 44 places (no filter)
 REAL_ALL = None  # None means use all places

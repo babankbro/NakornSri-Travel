@@ -142,18 +142,21 @@ class RouteEvaluator:
         w_c = self.request.weight_co2
         w_r = getattr(self.request, 'weight_rating', 0.0)
 
+
         num_data = len(route.day_places)
         factor1 = 1
         factor2 = 2
         if num_data == 1:
             factor1 = 2
+        if num_data == 2:
+            factor2 = 0.75
         if num_data == 3:
             factor1 = 0.5
             factor2 = 0.5
         
-        dist_norm = ev["total_distance_km"] / (300.0 * factor1)
+        dist_norm = ev["total_distance_km"] / (250.0 * factor1)
         # TODO: add number of data to concern
-        co2_norm = ev["total_co2_kg"] / (200.0 * factor2)
+        co2_norm = ev["total_co2_kg"] / (150.0 * factor2)
 
         # Calculate Collective Rating Benefit (Total Rating relative to Max Capacity)
         place_map = {p.id: p for p in self.data.places}
@@ -187,7 +190,7 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+                if pid in place_map and place_map[pid].is_food
             )
             if food_count == 0:
                 penalty += 50.0
@@ -207,7 +210,7 @@ class RouteEvaluator:
                 1 for pid in all_place_ids
                 if pid in place_map and place_map[pid].type in (PlaceType.CAFE, PlaceType.FOOD_CAFE)
             )
-            penalty -= 0.05 * cafe_count  # each cafe visit reduces cost (bonus)
+            penalty -= 0.10 * cafe_count  # each cafe visit reduces cost (bonus)
 
         return cost + penalty
 
@@ -235,7 +238,7 @@ class RouteEvaluator:
 
             food_count = sum(
                 1 for pid in day_places
-                if pid in place_map and place_map[pid].type == PlaceType.FOOD
+                if pid in place_map and place_map[pid].is_food
             )
             if food_count == 0:
                 violations.append(f"Day {day_idx}: missing Food visit (need at least 1)")
@@ -281,7 +284,8 @@ class BaseOptimizer(ABC):
         min_per_day = self.request.min_places_per_day
         max_per_day = self.request.max_places_per_day
 
-        # CAFE = tourist slot; FOOD_CAFE = food slot (mandatory lunch) but also cafe
+        # Tourist slot pool: Travel, Culture, OTOP-excluded, FOOD-excluded, FOOD_CAFE-excluded
+        # CAFE type fills tourist slots freely (not mandatory lunch)
         non_otop_food = [p for p in all_candidates if p.type not in (PlaceType.OTOP, PlaceType.FOOD, PlaceType.FOOD_CAFE)]
 
         def pick_non_otop_food(n: int, exclude: set) -> List[Place]:
@@ -302,40 +306,34 @@ class BaseOptimizer(ABC):
         food_pool = list(foods) + food_cafe
         rng.shuffle(food_pool)
 
-        used_ids: set = set()
+        # Food and OTOP are mandatory per day — they may repeat across days when
+        # there are fewer unique places than days. Tourist fill slots must stay unique.
+        used_tourist_ids: set = set()
         day_places: List[List[str]] = [[] for _ in range(num_days)]
 
-        # Assign 1 OTOP and 1 FOOD per day
+        # Assign 1 OTOP and 1 FOOD per day (allowed to repeat)
         for d in range(num_days):
-            if d < len(otop_pool):
-                otop = otop_pool[d]
-            elif otop_pool:
+            if otop_pool:
                 otop = otop_pool[d % len(otop_pool)]
-            else:
-                otop = None
-            if otop and otop.id not in used_ids:
                 day_places[d].append(otop.id)
-                used_ids.add(otop.id)
-
-            if d < len(food_pool):
-                food = food_pool[d]
-            elif food_pool:
+            if food_pool:
                 food = food_pool[d % len(food_pool)]
-            else:
-                food = None
-            if food and food.id not in used_ids:
                 day_places[d].append(food.id)
-                used_ids.add(food.id)
 
-        # Fill remaining slots per day
+        # Pre-populate used_tourist_ids so fill doesn't re-pick already-assigned places
+        for d in range(num_days):
+            for pid in day_places[d]:
+                used_tourist_ids.add(pid)
+
+        # Fill remaining slots per day with unique tourist places
         for d in range(num_days):
             target_length = rng.integers(min_per_day, max_per_day + 1)
             fill_count = target_length - len(day_places[d])
             if fill_count > 0:
-                fill = pick_non_otop_food(fill_count, used_ids)
+                fill = pick_non_otop_food(fill_count, used_tourist_ids)
                 for p in fill:
                     day_places[d].append(p.id)
-                    used_ids.add(p.id)
+                    used_tourist_ids.add(p.id)
             rng.shuffle(day_places[d])
 
         # Select hotels (num_days - 1 hotels needed)

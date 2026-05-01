@@ -113,36 +113,51 @@ class GAOptimizer(BaseOptimizer):
                         seen.add(rep)
             child_day_places[d] = new_day
 
-        # Repair OTOP and FOOD constraints (exactly 1 per day)
+        # Repair OTOP and FOOD constraints (exactly 1 food/otop per day)
+        # FOOD_CAFE counts as food (is_food covers Food and Food and Café)
+        place_lookup = {p.id: p for p in self.data.places}
         for d in range(num_days):
             day_places = child_day_places[d]
             for req_type in (PlaceType.OTOP, PlaceType.FOOD):
-                type_pids = [pid for pid in day_places if (next(p.is_food for p in self.data.places if p.id == pid) if req_type == PlaceType.FOOD else next(p.type for p in self.data.places if p.id == pid) == req_type)]
-                
+                is_food_req = req_type == PlaceType.FOOD
+                type_pids = [
+                    pid for pid in day_places
+                    if pid in place_lookup and (
+                        place_lookup[pid].is_food if is_food_req
+                        else place_lookup[pid].type == PlaceType.OTOP
+                    )
+                ]
+
                 while len(type_pids) > 1:
                     pid_to_remove = type_pids.pop()
                     candidates = self._get_candidate_places()
-                    replacements = [p.id for p in candidates if p.id not in seen and (p.type != PlaceType.OTOP and not p.is_food)]
+                    # Replace excess food/otop with a neutral tourist place
+                    replacements = [p.id for p in candidates if p.id not in seen and p.type != PlaceType.OTOP and not p.is_food]
                     if replacements:
                         rep = replacements[self.rng.integers(0, len(replacements))]
                         idx = day_places.index(pid_to_remove)
                         day_places[idx] = rep
-                        seen.remove(pid_to_remove)
+                        seen.discard(pid_to_remove)
                         seen.add(rep)
                     else:
                         day_places.remove(pid_to_remove)
-                        seen.remove(pid_to_remove)
+                        seen.discard(pid_to_remove)
 
                 if len(type_pids) == 0:
-                    candidates = self._get_candidate_places()
-                    replacements = [p.id for p in candidates if p.id not in seen and p.type == req_type]
+                    # Need to add a food or otop place — search all places (incl FOOD_CAFE)
+                    all_places = self.data.places
+                    if is_food_req:
+                        replacements = [p.id for p in all_places if p.id not in seen and p.is_food]
+                    else:
+                        replacements = [p.id for p in all_places if p.id not in seen and p.type == PlaceType.OTOP]
                     if replacements:
                         rep = replacements[self.rng.integers(0, len(replacements))]
-                        gen_pids = [pid for pid in day_places if next(p.type for p in self.data.places if p.id == pid) not in (PlaceType.OTOP, PlaceType.FOOD)]
+                        # Replace a neutral tourist slot (not otop, not food)
+                        gen_pids = [pid for pid in day_places if pid in place_lookup and place_lookup[pid].type != PlaceType.OTOP and not place_lookup[pid].is_food]
                         if gen_pids:
                             idx = day_places.index(gen_pids[0])
+                            seen.discard(gen_pids[0])
                             day_places[idx] = rep
-                            seen.remove(gen_pids[0])
                         else:
                             day_places.append(rep)
                         seen.add(rep)

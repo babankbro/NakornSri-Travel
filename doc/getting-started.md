@@ -88,7 +88,7 @@ On startup, the server:
    - Trip days: 2
    - Algorithm: GA (Genetic Algorithm)
    - Lifestyle: All
-   - Places per day (Min-Max): 3-7
+   - Places per day (Min-Max): 5-7
    - Weights: Distance 0.4, CO2 0.3, Rating 0.3
 4. Click **"คำนวณเส้นทาง"** (Calculate Route)
 5. View the optimized route on the map and in the day-by-day itinerary

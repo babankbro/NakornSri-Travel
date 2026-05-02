@@ -116,8 +116,13 @@ class SMOptimizer(BaseOptimizer):
             route.append(best_food)
             used.add(best_food)
 
-        # Step 3: Compute savings for non-OTOP, non-FOOD candidates
-        non_otop_food = [pid for pid in available_ids if pid not in used and pid not in otop_ids and pid not in food_ids]
+        # Step 3: Compute savings for non-OTOP, non-pure-FOOD candidates.
+        # FOOD_CAFE places are allowed as extra tourist slots (beyond the mandatory lunch),
+        # so we only exclude pure FOOD from food_ids here.
+        pure_food_ids = set(food_ids) - set(
+            p.id for p in self.data.places if p.type == PlaceType.FOOD_CAFE
+        )
+        non_otop_food = [pid for pid in available_ids if pid not in used and pid not in otop_ids and pid not in pure_food_ids]
         savings = self._compute_savings(hub_id, non_otop_food)
 
         # Step 4: Greedily add places based on savings
@@ -136,10 +141,11 @@ class SMOptimizer(BaseOptimizer):
                     used.add(pid)
 
         # Step 5: Fill remaining slots with best-rated unused places
+        # Same exclusion rule: skip OTOP and pure FOOD (FOOD_CAFE allowed as extra slot)
         if len(route) < max_places:
             remaining = [
                 pid for pid in available_ids
-                if pid not in used and pid not in otop_ids and pid not in food_ids
+                if pid not in used and pid not in otop_ids and pid not in pure_food_ids
             ]
             place_map = {p.id: p for p in self.data.places}
             remaining.sort(key=lambda pid: place_map[pid].rate, reverse=True)

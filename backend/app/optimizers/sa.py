@@ -51,23 +51,37 @@ class SAOptimizer(BaseOptimizer):
 
         elif move_type == 2:
             # Swap places between two different days
+            # Rules (same as GA mutate type-2):
+            #   OTOP ↔ OTOP only (exactly-1 constraint)
+            #   pure FOOD ↔ any food-type (keep ≥1 food on each side)
+            #   CAFE / FOOD_CAFE / TRAVEL / CULTURE ↔ anything except OTOP
             if num_days >= 2:
                 d1, d2 = self.rng.choice(num_days, size=2, replace=False)
                 if new_route.day_places[d1] and new_route.day_places[d2]:
                     i1 = int(self.rng.integers(0, len(new_route.day_places[d1])))
                     pid1 = new_route.day_places[d1][i1]
-                    p1_type = next(p.type for p in self.data.places if p.id == pid1)
-                    
+                    place_lookup = {p.id: p for p in self.data.places}
+                    p1_obj = place_lookup.get(pid1)
+                    p1_type = p1_obj.type if p1_obj else None
+
                     valid_i2s = []
                     for i2, pid2 in enumerate(new_route.day_places[d2]):
-                        p2_type = next(p.type for p in self.data.places if p.id == pid2)
-                        if "Food" in p1_type.value or p1_type == PlaceType.OTOP:
-                            if p2_type == p1_type or ("Food" in p1_type.value and "Food" in p2_type.value):
+                        p2_obj = place_lookup.get(pid2)
+                        if p2_obj is None:
+                            continue
+                        if p1_type == PlaceType.OTOP:
+                            # OTOP must swap with OTOP to keep exactly-1 rule
+                            if p2_obj.type == PlaceType.OTOP:
+                                valid_i2s.append(i2)
+                        elif p1_type == PlaceType.FOOD:
+                            # Pure FOOD: swap with any food-type to maintain ≥1 food per day
+                            if p2_obj.is_food:
                                 valid_i2s.append(i2)
                         else:
-                            if "Food" not in p2_type.value and p2_type != PlaceType.OTOP:
+                            # CAFE, FOOD_CAFE, TRAVEL, CULTURE: freely swap with non-OTOP
+                            if p2_obj.type != PlaceType.OTOP:
                                 valid_i2s.append(i2)
-                    
+
                     if valid_i2s:
                         i2 = int(self.rng.choice(valid_i2s))
                         new_route.day_places[d1][i1], new_route.day_places[d2][i2] = (
@@ -77,19 +91,39 @@ class SAOptimizer(BaseOptimizer):
 
         elif move_type == 3:
             # Replace a place with an unused candidate
+            # Rules:
+            #   OTOP → replace with another OTOP (keep exactly-1)
+            #   pure FOOD → replace with any food-type (keep ≥1 food on day)
+            #   CAFE / FOOD_CAFE / TRAVEL / CULTURE → replace with any non-OTOP
+            #     (unless this is the last food on the day — then keep food-types only)
             day = int(self.rng.integers(0, num_days))
             places = new_route.day_places[day]
             all_used = set(pid for d in new_route.day_places for pid in d)
+            place_lookup = {p.id: p for p in self.data.places}
             if places:
                 idx = int(self.rng.integers(0, len(places)))
                 pid = places[idx]
-                p_type = next(p.type for p in self.data.places if p.id == pid)
-                
-                if ("Food" in p_type.value or p_type == PlaceType.OTOP):
-                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type == p_type]
+                p_obj = place_lookup.get(pid)
+                p_type = p_obj.type if p_obj else None
+
+                if p_type == PlaceType.OTOP:
+                    # OTOP must be replaced by another OTOP
+                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type == PlaceType.OTOP]
+                elif p_type == PlaceType.FOOD:
+                    # Pure FOOD: replace with any food-type
+                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.is_food]
                 else:
-                    candidates = [p for p in self._get_candidate_places() if p.id not in all_used and (p.type != PlaceType.OTOP and not p.is_food)]
-                
+                    # CAFE, FOOD_CAFE, TRAVEL, CULTURE
+                    # Check if this is the last food stop on the day
+                    food_count = sum(1 for dpid in places if dpid in place_lookup and place_lookup[dpid].is_food)
+                    is_food = p_obj.is_food if p_obj else False
+                    if is_food and food_count <= 1:
+                        # Last food on day — must replace with another food-type
+                        candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.is_food]
+                    else:
+                        # Free to replace with any non-OTOP candidate
+                        candidates = [p for p in self._get_candidate_places() if p.id not in all_used and p.type != PlaceType.OTOP]
+
                 if candidates:
                     new_place = candidates[self.rng.integers(0, len(candidates))]
                     places[idx] = new_place.id

@@ -135,37 +135,52 @@ class ALNSOperators:
     def random_insert(self, route: Route, removed: List[str]) -> Route:
         new_route = route.copy()
         num_days = new_route.num_days
+        place_lookup = {p.id: p for p in self.data.places}
+
         for pid in removed:
-            p_type = next(p.type for p in self.data.places if p.id == pid)
+            p_obj = place_lookup.get(pid)
+            p_type = p_obj.type if p_obj else None
             day = None
-            
-            # If constrained, force it into the day that is missing this type
-            if "Food" in p_type.value or p_type == PlaceType.OTOP:
+
+            # For OTOP: prefer a day that has no OTOP yet (exactly-1 constraint)
+            # For pure FOOD: prefer a day that has no food yet (≥1 food constraint)
+            # For CAFE / FOOD_CAFE / TRAVEL / CULTURE: any day is fine (extras welcome)
+            if p_type == PlaceType.OTOP:
                 for d in range(num_days):
-                    if not any((next(p.is_food for p in self.data.places if p.id == p_id) if "Food" in p_type.value else next(p.type for p in self.data.places if p.id == p_id) == p_type) for p_id in new_route.day_places[d]):
+                    otop_on_day = any(
+                        place_lookup[p_id].type == PlaceType.OTOP
+                        for p_id in new_route.day_places[d] if p_id in place_lookup
+                    )
+                    if not otop_on_day:
                         day = d
                         break
-            
+            elif p_type == PlaceType.FOOD:
+                # Pure FOOD: prefer a day without any food stop
+                for d in range(num_days):
+                    food_on_day = any(
+                        place_lookup[p_id].is_food
+                        for p_id in new_route.day_places[d] if p_id in place_lookup
+                    )
+                    if not food_on_day:
+                        day = d
+                        break
+            # CAFE, FOOD_CAFE, TRAVEL, CULTURE → fall through to random below
+
             if day is None:
                 day = int(self.rng.integers(0, num_days))
-                
+
             day_list = new_route.day_places[day]
             if len(day_list) >= self.request.max_places_per_day:
-                # Try other days
+                # Try other days with capacity
                 inserted = False
                 for d in range(num_days):
-                    if "Food" in p_type.value or p_type == PlaceType.OTOP:
-                        # Still must respect type constraint if trying other days
-                        has_type = any((next(p.is_food for p in self.data.places if p.id == p_id) if "Food" in p_type.value else next(p.type for p in self.data.places if p.id == p_id) == p_type) for p_id in new_route.day_places[d])
-                        if has_type:
-                            continue
-                    
                     if len(new_route.day_places[d]) < self.request.max_places_per_day:
                         pos = int(self.rng.integers(0, len(new_route.day_places[d]) + 1))
                         new_route.day_places[d].insert(pos, pid)
                         inserted = True
                         break
-                if not inserted and len(day_list) < self.request.max_places_per_day + 1:
+                if not inserted:
+                    # Force-insert even over capacity as last resort
                     pos = int(self.rng.integers(0, len(day_list) + 1))
                     day_list.insert(pos, pid)
             else:
